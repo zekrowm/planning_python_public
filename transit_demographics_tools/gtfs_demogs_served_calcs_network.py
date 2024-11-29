@@ -17,11 +17,11 @@ gtfs_data_path = r"\\your_file_path\here\\"
 # List of short_short_name values to process
 routes = ["101", "102", "103"]  # Replace with your own values
 
-# Demographics shapefile path
-demographics_shp_path = r"C:\path\to\census_blocks.shp"
-
 # Buffer distance in miles
 buffer_distance = 0.5
+
+# Demographics shapefile path
+demographics_shp_path = r"C:\path\to\census_blocks.shp"
 
 # Synthetic fields to process
 synthetic_fields = [
