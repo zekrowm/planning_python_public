@@ -14,11 +14,11 @@ from shapely.geometry import Point
 # GTFS data path
 gtfs_data_path = r"\\your_file_path\here\\"
 
-# Demographics shapefile path
-demographics_shp_path = r"C:\path\to\census_blocks.shp"
-
 # List of short_short_name values to process
 routes = ["101", "102", "103"]  # Replace with your own values
+
+# Demographics shapefile path
+demographics_shp_path = r"C:\path\to\census_blocks.shp"
 
 # Buffer distance in miles
 buffer_distance = 0.5
