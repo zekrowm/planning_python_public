@@ -208,12 +208,14 @@ for schedule_name, days in schedule_types.items():
             for cell in worksheet[1]:
                 cell.alignment = Alignment(horizontal='left')
 
-            # Adjust the width of 'trip_headsign' column
-            if 'trip_headsign' in cluster_data.columns:
-                trip_headsign_col_idx = cluster_data.columns.get_loc('trip_headsign') + 1
-                trip_headsign_col_letter = get_column_letter(trip_headsign_col_idx)
-                max_length = cluster_data['trip_headsign'].astype(str).map(len).max()
-                worksheet.column_dimensions[trip_headsign_col_letter].width = max_length + 2
+            # Adjust the width of all columns
+            for idx, col in enumerate(cluster_data.columns, 1):  # 1-based indexing for Excel columns
+                column_letter = get_column_letter(idx)
+                max_length = max(
+                    cluster_data[col].astype(str).map(len).max(),  # Maximum length of column entries
+                    len(str(col))  # Length of the column header
+                ) + 2  # Adding extra space for better readability
+                worksheet.column_dimensions[column_letter].width = max_length
 
         print(f"Processed and exported data for {cluster_name} on {schedule_name} schedule.")
 
@@ -248,12 +250,14 @@ for schedule_name, days in schedule_types.items():
                     for cell in worksheet[1]:
                         cell.alignment = Alignment(horizontal='left')
 
-                    # Adjust the width of 'trip_headsign' column
-                    if 'trip_headsign' in filtered_data.columns:
-                        trip_headsign_col_idx = filtered_data.columns.get_loc('trip_headsign') + 1
-                        trip_headsign_col_letter = get_column_letter(trip_headsign_col_idx)
-                        max_length = filtered_data['trip_headsign'].astype(str).map(len).max()
-                        worksheet.column_dimensions[trip_headsign_col_letter].width = max_length + 2
+                    # Adjust the width of all columns
+                    for idx, col in enumerate(filtered_data.columns, 1):  # 1-based indexing for Excel columns
+                        column_letter = get_column_letter(idx)
+                        max_length = max(
+                            filtered_data[col].astype(str).map(len).max(),  # Maximum length of column entries
+                            len(str(col))  # Length of the column header
+                        ) + 2  # Adding extra space for better readability
+                        worksheet.column_dimensions[column_letter].width = max_length
 
                 print(f"Processed and exported data for {cluster_name} on {schedule_name} schedule in {time_window_name} time window.")
 
