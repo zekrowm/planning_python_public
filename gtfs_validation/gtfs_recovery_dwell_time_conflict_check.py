@@ -11,8 +11,8 @@ import os
 # ================================
 
 # Input and output folder paths
-base_input_path = r"C:\Path\To\Your\GTFS\Data"
-base_output_path = r"C:\Path\To\Your\Output\Folder"
+base_input_path = r"C:\Path\To\Your\System\GTFS_Data" # Replace with your file path
+base_output_path = r"C:\Path\To\Your\Output_Folder" # Replace with your file path
 
 # Input file names
 stop_times_file = "stop_times.txt"
