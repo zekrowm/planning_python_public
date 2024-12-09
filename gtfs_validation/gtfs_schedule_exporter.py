@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 # ==============================
 
 # Input file paths for GTFS files (update these paths accordingly)
-base_input_path = r'\\your_file_path\here\\'
+base_input_path = r"C:\Path\To\Your\System\GTFS_Data" # Replace with your file path
 trips_file = os.path.join(base_input_path, "trips.txt")
 stop_times_file = os.path.join(base_input_path, "stop_times.txt")
 routes_file = os.path.join(base_input_path, "routes.txt")
@@ -23,7 +23,7 @@ stops_file = os.path.join(base_input_path, "stops.txt")
 calendar_file = os.path.join(base_input_path, "calendar.txt")
 
 # Output directory (update this path accordingly)
-base_output_path = r'\\your_output_path\here\\'
+base_output_path = r"C:\Path\To\Your\Output_Folder" # Replace with your file path
 if not os.path.exists(base_output_path):
     os.makedirs(base_output_path)
 
