@@ -1,12 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[21]:
-
-
-#!/usr/bin/env python
-# coding: utf-8
-
 import pandas as pd
 import os
 import re
@@ -17,6 +11,7 @@ import re
 
 # Define input and output paths
 input_file = r"C:\Path\To\Your\GTFS\Data" # Replace with your file path
+# TODO change processing to take GTFS folder rather than full .txt file path
 output_folder = r"C:\Path\To\Your\Output\Folder" # Replace with your file path
 output_file = r'stop_name_suffix_errors.csv'  # Suffix check output file name
 output_all_stops_file = 'all_stops_by_caps_style.csv' # Capitalization check output file name
