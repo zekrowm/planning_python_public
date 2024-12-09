@@ -12,7 +12,7 @@ import os
 # ==============================
 
 # Input directory containing GTFS files
-gtfs_input_path = r'\\your_file_path\\here\\'
+gtfs_input_path = r"C:\Path\To\Your\System\GTFS_Data" # Replace with your file path
 
 # Output file for orphaned stops
 output_file = r'\\your_file_path\\here\\orphaned_stops.csv'
