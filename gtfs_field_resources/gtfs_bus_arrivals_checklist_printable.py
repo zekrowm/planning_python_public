@@ -165,6 +165,7 @@ for schedule_name, days in schedule_types.items():
         # Add 'act_arrival' and 'act_departure' columns with placeholders
         cluster_data.insert(cluster_data.columns.get_loc('arrival_time') + 1, 'act_arrival', '________')
         cluster_data.insert(cluster_data.columns.get_loc('departure_time') + 1, 'act_departure', '________')
+        cluster_data.insert(cluster_data.columns.get_loc('block_id') + 1, 'act_block', '________')
 
         # Modify 'act_arrival' where 'sequence_long' is 'start'
         cluster_data.loc[cluster_data['sequence_long'] == 'start', 'act_arrival'] = '__XXXX__'
@@ -175,6 +176,9 @@ for schedule_name, days in schedule_types.items():
         # Add 'bus_number' column with underscores
         cluster_data['bus_number'] = '________'
 
+        # Add 'comments' column with underscores
+        cluster_data['comments'] = '________________'
+        
         # Add 'stop_name' column next to 'stop_id'
         cluster_data = pd.merge(cluster_data, stops[['stop_id', 'stop_name']], on='stop_id', how='left')
 
@@ -182,7 +186,7 @@ for schedule_name, days in schedule_types.items():
         first_columns = [
             'route_short_name', 'trip_headsign', 'stop_sequence', 'sequence_long',
             'stop_id', 'stop_name', 'arrival_time', 'act_arrival',
-            'departure_time', 'act_departure', 'block_id', 'bus_number'
+            'departure_time', 'act_departure', 'block_id', 'act_block', 'bus_number', 'comments'
         ]
         other_columns = [col for col in cluster_data.columns if col not in first_columns]
         cluster_data = cluster_data[first_columns + other_columns]
