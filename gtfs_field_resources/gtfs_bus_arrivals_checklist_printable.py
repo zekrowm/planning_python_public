@@ -63,20 +63,20 @@ schedule_types = {
 
 # Time windows for filtering trips
 # Format: {'Schedule Type': {'Time Window Name': ('Start Time', 'End Time')}}
-# Times should be in 'HH:MM:SS' 24-hour format
+# Times should be in 'HH:MM' 24-hour format
 time_windows = {
     'Weekday': {
-        'morning': ('06:00:00', '09:59:59'),
-        'afternoon': ('14:00:00', '17:59:59'),
-        # 'evening': ('18:00:00', '21:59:59'),  # Add as needed
+        'morning': ('06:00', '09:59'),
+        'afternoon': ('14:00', '17:59'),
+        # 'evening': ('18:00', '21:59'),  # Add as needed
     },
     'Saturday': {
-        'midday': ('10:00:00', '13:59:59'),
+        'midday': ('10:00', '13:59'),
         # Add more time windows for Saturday if needed
     },
     # 'Sunday': {  # Uncomment and customize for Sunday if needed
-    #     'morning': ('08:00:00', '11:59:59'),
-    #     'afternoon': ('12:00:00', '15:59:59'),
+    #     'morning': ('08:00', '11:59'),
+    #     'afternoon': ('12:00', '15:59'),
     # },
 }
 
@@ -88,15 +88,19 @@ time_windows = {
 if not os.path.exists(base_output_path):
     os.makedirs(base_output_path)
 
-# Function to fix time format
 def fix_time_format(time_str):
+    # Convert the given time to HH:MM format, ignoring seconds if present
     parts = time_str.split(":")
     hours = int(parts[0])
     minutes = int(parts[1])
-    seconds = int(parts[2])
+    # If there's a seconds part, we ignore it
+    # If not provided, default would be no seconds
+    # but original data likely has seconds, so just ignore
+    # If needed, handle gracefully:
+    # seconds = int(parts[2]) if len(parts) > 2 else 0
     if hours >= 24:
         hours -= 24
-    return f"{hours:02}:{minutes:02}:{seconds:02}"
+    return f"{hours:02}:{minutes:02}"
 
 # Ensure 'stop_id' is string in stops DataFrame
 stops['stop_id'] = stops['stop_id'].astype(str)
@@ -151,16 +155,13 @@ for schedule_name, days in schedule_types.items():
         cluster_data['arrival_time'] = cluster_data['arrival_time'].apply(fix_time_format)
         cluster_data['departure_time'] = cluster_data['departure_time'].apply(fix_time_format)
 
-        # Ensure times are strings to retain formatting in Excel
+        # Ensure times are strings in HH:MM
         cluster_data['arrival_time'] = cluster_data['arrival_time'].astype(str)
         cluster_data['departure_time'] = cluster_data['departure_time'].astype(str)
 
-        # Convert arrival_time and departure_time to datetime
-        cluster_data['arrival_time'] = pd.to_datetime(cluster_data['arrival_time'], format='%H:%M:%S').dt.time
-        cluster_data['departure_time'] = pd.to_datetime(cluster_data['departure_time'], format='%H:%M:%S').dt.time
-
-        # Sort by arrival_time
-        cluster_data = cluster_data.sort_values(by='arrival_time')
+        # Sort by arrival_time using a temporary datetime conversion
+        cluster_data['arrival_sort'] = pd.to_datetime(cluster_data['arrival_time'], format='%H:%M')
+        cluster_data = cluster_data.sort_values(by='arrival_sort').drop(columns='arrival_sort')
 
         # Add 'act_arrival' and 'act_departure' columns with placeholders
         cluster_data.insert(cluster_data.columns.get_loc('arrival_time') + 1, 'act_arrival', '________')
@@ -178,7 +179,7 @@ for schedule_name, days in schedule_types.items():
 
         # Add 'comments' column with underscores
         cluster_data['comments'] = '________________'
-        
+
         # Add 'stop_name' column next to 'stop_id'
         cluster_data = pd.merge(cluster_data, stops[['stop_id', 'stop_name']], on='stop_id', how='left')
 
@@ -227,14 +228,14 @@ for schedule_name, days in schedule_types.items():
         if schedule_name in time_windows:
             for time_window_name, time_range in time_windows[schedule_name].items():
                 start_time_str, end_time_str = time_range
-                start_time = pd.to_datetime(start_time_str, format='%H:%M:%S').time()
-                end_time = pd.to_datetime(end_time_str, format='%H:%M:%S').time()
 
-                # Filter cluster_data to only include trips within the time window
-                filtered_data = cluster_data[
-                    (cluster_data['arrival_time'] >= start_time) &
-                    (cluster_data['arrival_time'] <= end_time)
-                ]
+                # Parse the start and end times in HH:MM format
+                start_dt = pd.to_datetime(start_time_str, format='%H:%M').time()
+                end_dt = pd.to_datetime(end_time_str, format='%H:%M').time()
+
+                # Convert arrival_time strings (HH:MM) to datetime.time for filtering
+                arrival_times = pd.to_datetime(cluster_data['arrival_time'], format='%H:%M').dt.time
+                filtered_data = cluster_data[(arrival_times >= start_dt) & (arrival_times <= end_dt)]
 
                 if filtered_data.empty:
                     print(f"No data found for {cluster_name} on {schedule_name} schedule in {time_window_name} time window. Skipping.")
