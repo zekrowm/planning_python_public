@@ -10,8 +10,7 @@ import re
 # ================================
 
 # Define input and output paths
-input_file = r"C:\Path\To\Your\System\GTFS_Data" # Replace with your file path
-# TODO change processing to take GTFS folder rather than full .txt file path
+input_folder = r"C:\Path\To\Your\System\GTFS_Data" # Replace with your folder path
 output_folder = r"C:\Path\To\Your\Output_Folder" # Replace with your file path
 output_file = r'stop_name_suffix_errors.csv'  # Suffix check output file name
 output_all_stops_file = 'all_stops_by_caps_style.csv' # Capitalization check output file name
@@ -104,11 +103,12 @@ def find_invalid_short_words(stop_name):
 
 def main():
     # Set input and output paths
-    input_file_path = input_file
     output_folder_path = output_folder
     output_file_path = os.path.join(output_folder_path, output_file)
     output_all_stops_file_path = os.path.join(output_folder_path, output_all_stops_file)  # For all stops file with scheme
 
+    input_file_path = os.path.join(input_folder, "stops.txt") 
+    
     if not os.path.exists(output_folder_path):
         os.makedirs(output_folder_path)
 
