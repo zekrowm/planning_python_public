@@ -11,7 +11,7 @@ import re
 
 # Define input and output paths
 input_folder = r"C:\Path\To\Your\System\GTFS_Data" # Replace with your folder path
-output_folder = r"C:\Path\To\Your\Output_Folder" # Replace with your file path
+output_folder = r"C:\Path\To\Your\Output_Folder" # Replace with your folder path
 output_file = r'stop_name_suffix_errors.csv'  # Suffix check output file name
 output_all_stops_file = 'all_stops_by_caps_style.csv' # Capitalization check output file name
 
