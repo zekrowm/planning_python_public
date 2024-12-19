@@ -121,17 +121,12 @@ def adjust_time(time_str, time_format='24'):
         return None
 
 def get_ordered_stops(direction_id, relevant_trips):
-    """
-    Retrieves ordered stop names and stop_ids for a given direction_id within relevant_trips.
-    Appends stop_sequence to stop names.
-    """
     relevant_trips_direction = relevant_trips[relevant_trips['direction_id'] == direction_id]
 
     if relevant_trips_direction.empty:
         print(f"Warning: No trips found for direction_id '{direction_id}'.")
         return [], []
 
-    # Get all stops for this direction in order
     all_stops = timepoints[timepoints['trip_id'].isin(relevant_trips_direction['trip_id'])]
     all_stops = all_stops.sort_values(['trip_id', 'stop_sequence'])
 
@@ -139,22 +134,16 @@ def get_ordered_stops(direction_id, relevant_trips):
         print(f"Warning: No stop times found for direction_id '{direction_id}'.")
         return [], []
 
-    # Get unique stops in order
-    unique_stops = all_stops.drop_duplicates('stop_id')[['stop_id', 'stop_sequence']]
-    unique_stops = unique_stops.sort_values('stop_sequence')
+    # Keep all occurrences of each stop (no drop_duplicates on stop_id)
+    unique_stops = all_stops[['stop_id', 'stop_sequence']].drop_duplicates().sort_values('stop_sequence')
 
-    # Removed inconsistent stop_sequence check
-
-    # Get stop names
     stop_names = stops.set_index('stop_id')['stop_name']
-
-    # Create ordered list of stop names with stop_sequence appended
     ordered_stop_names = [
-        f"{stop_names.get(stop_id, f'Unknown Stop ID {stop_id}')}" + f" ({seq})"
+        f"{stop_names.get(stop_id, f'Unknown Stop ID {stop_id}')} ({seq})"
         for stop_id, seq in zip(unique_stops['stop_id'], unique_stops['stop_sequence'])
     ]
 
-    return ordered_stop_names, unique_stops['stop_id'].tolist()
+    return ordered_stop_names, unique_stops
 
 def map_service_id_to_schedule(service_row):
     """
@@ -194,15 +183,20 @@ def map_service_id_to_schedule(service_row):
     else:
         return 'Special'  # For other combinations
 
-def process_trips_for_direction(relevant_trips_direction, ordered_stop_names, ordered_stop_ids, time_format, route_short_name, schedule_type):
+def process_trips_for_direction(relevant_trips_direction, ordered_stop_names, unique_stops, time_format, route_short_name, schedule_type):
     """
     Processes trips for a specific direction_id and returns a DataFrame without 'Trip ID'.
-    Sorts trips based on the latest departure time in 24-hour format across all timepoints.
+    Each stop occurrence is preserved, ensuring that repeated visits to the same stop appear as distinct columns.
+    Sorts trips based on the latest departure time in 24-hour format.
     Checks for sequential departure times and prints warnings if inconsistencies are found.
     """
     if relevant_trips_direction.empty:
         print("Warning: No trips to process for this direction.")
         return pd.DataFrame()
+
+    ordered_stop_ids = unique_stops['stop_id'].tolist()
+    ordered_stop_sequences = unique_stops['stop_sequence'].tolist()
+    stop_index_map = {seq: i for i, seq in enumerate(ordered_stop_sequences)}
 
     output_data = []
 
@@ -211,60 +205,47 @@ def process_trips_for_direction(relevant_trips_direction, ordered_stop_names, or
         route_name = routes[routes['route_id'] == trip_info['route_id']]['route_short_name'].values[0]
         trip_headsign = trip_info.get('trip_headsign', '')
 
-        # Initialize the row without 'Trip ID'
+        # Initialize the row with route_name, direction_id, trip_headsign
         row = [route_name, trip_info['direction_id'], trip_headsign]
 
-        # List to store all valid departure times for finding the latest one
+        # Initialize schedule times with missing_time
+        schedule_times = [missing_time] * len(ordered_stop_ids)
         valid_departure_times_24 = []
 
-        # Dictionary to store schedule times for each stop, initialized with placeholder
-        schedule_times = {stop_id: missing_time for stop_id in ordered_stop_ids}
-
         for idx, stop in group.iterrows():
-            # Adjust time for display based on desired format
-            time_str_display = adjust_time(stop['departure_time'].strip(), time_format)
-            # Adjust time for sorting (always in 24-hour format without wrapping)
-            time_str_24 = adjust_time(stop['departure_time'].strip(), '24')
+            departure_str = stop['departure_time'].strip()
+            time_str_display = adjust_time(departure_str, time_format)
+            time_str_24 = adjust_time(departure_str, '24')
+
             if time_str_display is None or time_str_24 is None:
                 print(f"Warning: Invalid time format '{stop['departure_time']}' in trip_id '{trip_id}' at stop_id '{stop['stop_id']}'")
                 continue
-            schedule_times[stop['stop_id']] = time_str_display
-            if time_str_24:
-                valid_departure_times_24.append(time_str_24)
 
-        # Determine the latest departure time across all stops
+            seq = stop['stop_sequence']
+            index = stop_index_map[seq]
+            schedule_times[index] = time_str_display
+            valid_departure_times_24.append(time_str_24)
+
+        # Determine the sorting time based on the maximum departure time
         if valid_departure_times_24:
-            # Convert all valid times to timedelta for comparison
             try:
-                # Convert each time string to timedelta
                 departure_timedeltas = [pd.to_timedelta(t + ':00') for t in valid_departure_times_24]
-                # Find the maximum timedelta
                 max_sort_time = max(departure_timedeltas)
-                # Convert back to string for display if needed
-                max_departure_time_str_24 = str(max_sort_time)[:-3]  # Remove seconds
             except Exception as e:
                 max_sort_time = pd.to_timedelta('00:00')
-                max_departure_time_str_24 = '00:00'
                 print(f"Warning: Failed to determine maximum departure time for trip_id '{trip_id}'. Defaulting to '00:00'. Error: {e}")
         else:
-            # Assign a large timedelta to push trips with no valid times to the bottom
+            # If no valid times, assign a large timedelta to push this trip to the bottom
             max_sort_time = pd.to_timedelta('9999:00:00')
-            max_departure_time_str_24 = '9999:00'
 
-        # Add schedule times for each ordered stop to the row
-        for stop_id in ordered_stop_ids:
-            row.append(schedule_times[stop_id])
+        # Add schedule times and the sort time to the row
+        row.extend(schedule_times)
+        row.append(max_sort_time)
 
-        # Append 'sort_time' as timedelta for accurate sorting
-        sort_time = max_sort_time
-
-        # Append 'sort_time' to the row
-        row.append(sort_time)
-
-        # Add the row to output_data
+        # Add this trip's data to the output
         output_data.append(row)
 
-        # Check for sequential departure times
+        # Check for sequential times
         times_in_seconds = []
         for time_str in valid_departure_times_24:
             try:
@@ -274,31 +255,18 @@ def process_trips_for_direction(relevant_trips_direction, ordered_stop_names, or
             except Exception as e:
                 print(f"Warning: Failed to parse time '{time_str}' in trip_id '{trip_id}'. Error: {e}")
 
-        # Verify that times are sequential
         for i in range(1, len(times_in_seconds)):
-            if times_in_seconds[i] < times_in_seconds[i-1]:
+            if times_in_seconds[i] < times_in_seconds[i - 1]:
                 print(
                     f"Warning: Non-sequential departure times in trip_id '{trip_id}' for Route '{route_short_name}', "
                     f"Schedule '{schedule_type}', Direction '{trip_info['direction_id']}'. "
-                    f"Stop {i+1} is earlier than Stop {i}."
+                    f"Stop {i + 1} is earlier than Stop {i}."
                 )
                 break  # Warn once per trip
 
-    # Define the columns for the DataFrame, including 'sort_time'
-    columns = ['Route Name', 'Direction ID', 'Trip Headsign']
-    for stop_name in ordered_stop_names:
-        columns.append(f'{stop_name} Schedule')
-    columns.append('sort_time')  # Temporary column for sorting
-
-    # Create the DataFrame with the collected data
+    columns = ['Route Name', 'Direction ID', 'Trip Headsign'] + [f"{sn} Schedule" for sn in ordered_stop_names] + ['sort_time']
     df = pd.DataFrame(output_data, columns=columns)
-
-    # Sort the DataFrame by 'sort_time' in ascending order (earlier end times first)
-    df = df.sort_values(by='sort_time')
-
-    # Drop the 'sort_time' column as it's no longer needed
-    df = df.drop(columns=['sort_time'])
-
+    df = df.sort_values(by='sort_time').drop(columns=['sort_time'])
     return df
 
 def export_to_excel_multiple_sheets(df_dict, output_file):
