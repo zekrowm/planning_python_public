@@ -3,6 +3,7 @@
 
 import os
 import pandas as pd
+import math
 
 # ================================
 # CONFIGURATION SECTION
@@ -44,13 +45,16 @@ stops_of_interest = ['6307', '6215']
 # HELPER FUNCTIONS
 # ================================
 def time_to_seconds(t):
+    """Convert HH:MM:SS time format to total seconds."""
     h, m, s = map(int, t.split(':'))
     return h * 3600 + m * 60 + s
 
 def seconds_to_minute_of_day(sec):
+    """Convert seconds to minute of day."""
     return (sec % 86400) // 60
 
 def get_trip_ranges_and_ends(block_segments):
+    """Extract trip information from block segments."""
     trips_info = []
     for tid in block_segments['trip_id'].unique():
         tsub = block_segments[
@@ -70,6 +74,12 @@ def get_trip_ranges_and_ends(block_segments):
     return trips_info
 
 def get_minute_status_location(minute, block_segments, LAYOVER_THRESHOLD, trips_info):
+    """
+    Determine the status and location of a block at a given minute.
+    
+    Returns a tuple:
+    (status, location, route_short_name, direction_id, stop_id)
+    """
     current_sec = minute * 60
     if not trips_info:
         return ("inactive", "inactive", "", "", "")
@@ -95,12 +105,12 @@ def get_minute_status_location(minute, block_segments, LAYOVER_THRESHOLD, trips_
 
         for i in range(len(tsub)):
             row = tsub.iloc[i]
-            arr_sec = row['arrival_seconds'] % 86400
-            dep_sec = row['departure_seconds'] % 86400
+            arr_sec = row['arrival_seconds']
+            dep_sec = row['departure_seconds']
             nstp = row['next_stop_id']
             narr = row['next_arrival_seconds']
             if pd.notnull(narr):
-                narr = narr % 86400
+                narr = narr
 
             # Dwelling at stop (inclusive of dep_sec)
             if arr_sec <= current_sec <= dep_sec:
@@ -198,12 +208,14 @@ stop_times = stop_times.merge(
     on='trip_id', how='left'
 )
 
-stop_times['arrival_seconds'] = (
-    stop_times['arrival_time'].apply(time_to_seconds) % 86400
-)
-stop_times['departure_seconds'] = (
-    stop_times['departure_time'].apply(time_to_seconds) % 86400
-)
+# Remove modulo operation to handle trips crossing midnight
+stop_times['arrival_seconds'] = stop_times['arrival_time'].apply(time_to_seconds)
+stop_times['departure_seconds'] = stop_times['departure_time'].apply(time_to_seconds)
+
+# Determine the maximum departure_seconds to set the minute range
+max_departure_seconds = stop_times[['departure_seconds']].max().max()
+max_minute = int(math.ceil(max_departure_seconds / 60))
+minute_range = range(0, max_minute + 1)
 
 stop_times.sort_values(['block_id', 'arrival_seconds'], inplace=True)
 stop_times['next_stop_id'] = (
@@ -268,7 +280,7 @@ for b_id in all_blocks:
     # Get trip ranges
     trips_info = get_trip_ranges_and_ends(b_segments)
 
-    block_df = pd.DataFrame({'minute': range(1440)})
+    block_df = pd.DataFrame({'minute': minute_range})
     block_df['time_str'] = block_df['minute'].apply(
         lambda x: f"{x//60:02d}:{x%60:02d}"
     )
@@ -314,7 +326,7 @@ print("Per-block processing completed.")
 # ================================
 # NEW FUNCTION: PER-STOP EXCELS
 # ================================
-def create_per_stop_excels(stops_of_interest, block_dataframes, output_folder):
+def create_per_stop_excels(stops_of_interest, block_dataframes, output_folder, minute_range):
     """
     For each stop in stops_of_interest, create a .xlsx file that includes:
     - A summary sheet listing, for each minute of the day:
@@ -334,12 +346,12 @@ def create_per_stop_excels(stops_of_interest, block_dataframes, output_folder):
         if not blocks_serving_stop:
             continue
 
-        summary_df = pd.DataFrame({'minute': range(1440)})
+        summary_df = pd.DataFrame({'minute': minute_range})
         summary_df['time_str'] = summary_df['minute'].apply(
             lambda x: f"{x//60:02d}:{x%60:02d}"
         )
-        summary_df['blocks_present'] = [[] for _ in range(1440)]
-        summary_df['routes_present'] = [[] for _ in range(1440)]
+        summary_df['blocks_present'] = [[] for _ in minute_range]
+        summary_df['routes_present'] = [[] for _ in minute_range]
 
         for b_id in blocks_serving_stop:
             bdf = block_dataframes[b_id]
@@ -349,7 +361,7 @@ def create_per_stop_excels(stops_of_interest, block_dataframes, output_folder):
             )
             present_minutes = bdf[presence_mask]
 
-            for idx, row in present_minutes.iterrows():
+            for _, row in present_minutes.iterrows():
                 m = row['minute']
                 if row['block_id']:
                     summary_df.at[m, 'blocks_present'].append(row['block_id'])
@@ -401,7 +413,7 @@ def create_per_stop_excels(stops_of_interest, block_dataframes, output_folder):
         print(f"Created per-stop file for stop {s_id}: {output_file}")
 
 
-create_per_stop_excels(stops_of_interest, block_dataframes, BASE_OUTPUT_PATH)
+create_per_stop_excels(stops_of_interest, block_dataframes, BASE_OUTPUT_PATH, minute_range)
 
 print("Per-stop processing completed.")
 
@@ -409,7 +421,7 @@ print("Per-stop processing completed.")
 # ================================
 # NEW FUNCTION: SUMMARY OF SUMMARIES
 # ================================
-def create_summary_of_summaries(stops_of_interest, block_dataframes, output_folder):
+def create_summary_of_summaries(stops_of_interest, block_dataframes, output_folder, minute_range, stop_name_map):
     """
     Create a 'summary of summaries' file that shows, for the entire cluster of stops:
     - How many buses are present in each minute of the day
@@ -421,12 +433,12 @@ def create_summary_of_summaries(stops_of_interest, block_dataframes, output_fold
     the total number of unique blocks present at all filtered stops combined.
     """
     # Initialize a global summary DataFrame
-    cluster_summary_df = pd.DataFrame({'minute': range(1440)})
+    cluster_summary_df = pd.DataFrame({'minute': minute_range})
     cluster_summary_df['time_str'] = cluster_summary_df['minute'].apply(
         lambda x: f"{x//60:02d}:{x%60:02d}"
     )
-    cluster_summary_df['blocks_present'] = [[] for _ in range(1440)]
-    cluster_summary_df['routes_present'] = [[] for _ in range(1440)]
+    cluster_summary_df['blocks_present'] = [[] for _ in minute_range]
+    cluster_summary_df['routes_present'] = [[] for _ in minute_range]
 
     # For each stop, also create columns to store per-stop block/route presence
     per_stop_blocks = {}
@@ -438,8 +450,8 @@ def create_summary_of_summaries(stops_of_interest, block_dataframes, output_fold
             [c if c.isalnum() else "_" for c in stop_name]
         ) or "UnknownStop"
         # Initialize per-stop lists
-        per_stop_blocks[s_id] = [[] for _ in range(1440)]
-        per_stop_routes[s_id] = [[] for _ in range(1440)]
+        per_stop_blocks[s_id] = [[] for _ in minute_range]
+        per_stop_routes[s_id] = [[] for _ in minute_range]
         # Add placeholder columns to cluster_summary_df (will fill later)
         cluster_summary_df[
             f"{safe_stop_name}_{s_id}_blocks_present_str"
@@ -466,13 +478,20 @@ def create_summary_of_summaries(stops_of_interest, block_dataframes, output_fold
 
             for _, row in present_minutes.iterrows():
                 minute = row['minute']
+                # Ensure minute is within the defined range
+                if minute not in minute_range:
+                    continue
                 # Add block and route info to the cluster-level summary for all stops
                 if row['block_id']:
                     cluster_summary_df.at[minute, 'blocks_present'].append(row['block_id'])
                     per_stop_blocks[s_id][minute].append(row['block_id'])
                 if row['route_short_name']:
-                    cluster_summary_df.at[minute, 'routes_present'].append(row['route_short_name'])
-                    per_stop_routes[s_id][minute].append(row['route_short_name'])
+                    cluster_summary_df.at[minute, 'routes_present'].append(
+                        row['route_short_name']
+                    )
+                    per_stop_routes[s_id][minute].append(
+                        row['route_short_name']
+                    )
 
     # Convert the top-level lists into strings
     cluster_summary_df['blocks_present_str'] = cluster_summary_df['blocks_present'].apply(
@@ -535,5 +554,6 @@ def create_summary_of_summaries(stops_of_interest, block_dataframes, output_fold
 
 # Create the summary of summaries
 create_summary_of_summaries(
-    stops_of_interest, block_dataframes, BASE_OUTPUT_PATH
+    stops_of_interest, block_dataframes, BASE_OUTPUT_PATH, minute_range, stop_name_map
 )
+
