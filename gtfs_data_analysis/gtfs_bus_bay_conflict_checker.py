@@ -9,30 +9,30 @@ import pandas as pd
 # ================================
 # CONFIGURATION SECTION
 # ================================
-base_input_path = r"\\folder\path\to\your\gtfs_data" # Replace with your folder path
-base_output_path = r"\\folder\path\to\your\output_folder" # Replace with your folder path
+BASE_INPUT_PATH = r"\\folder\path\to\your\gtfs_data" # Replace with your folder path
+BASE_OUTPUT_PATH = r"\\folder\path\to\your\output_folder" # Replace with your folder path
 
-stop_times_file = "stop_times.txt"
-trips_file = "trips.txt"
-calendar_file = "calendar.txt"
-stops_file = "stops.txt"
-routes_file = "routes.txt"
+STOP_TIMES_FILE = "stop_times.txt"
+TRIPS_FILE = "trips.txt"
+CALENDAR_FILE = "calendar.txt"
+STOPS_FILE = "stops.txt"
+ROUTES_FILE = "routes.txt"
 
-os.makedirs(base_output_path, exist_ok=True)
+os.makedirs(BASE_OUTPUT_PATH, exist_ok=True)
 
 # Layover threshold in minutes
-layover_threshold = 20
+LAYOVER_THRESHOLD = 20
 
 # Define service_id for analysis
-whitelisted_service_id = '1'  # Replace with your desired service_id from calendar.txt
+WHITELISTED_SERVICE_ID = '1'  # Replace with your desired service_id from calendar.txt
 
 # Validate service_id
-calendar = pd.read_csv(os.path.join(base_input_path, calendar_file), dtype=str)
+calendar = pd.read_csv(os.path.join(BASE_INPUT_PATH, CALENDAR_FILE), dtype=str)
 available_service_ids = calendar['service_id'].unique()
 
-if whitelisted_service_id not in available_service_ids:
+if WHITELISTED_SERVICE_ID not in available_service_ids:
     raise ValueError(
-        f"The service_id '{whitelisted_service_id}' is invalid.\n"
+        f"The service_id '{WHITELISTED_SERVICE_ID}' is invalid.\n"
         f"Available service_id(s) from calendar.txt: {', '.join(available_service_ids)}."
     )
 
@@ -63,7 +63,7 @@ def get_trip_ranges_and_ends(block_segments):
     trips_info.sort(key=lambda x: x[1])
     return trips_info
 
-def get_minute_status_location(minute, block_segments, layover_threshold, trips_info):
+def get_minute_status_location(minute, block_segments, LAYOVER_THRESHOLD, trips_info):
     current_sec = minute * 60
     if not trips_info:
         return ("inactive", "inactive", "", "", "")
@@ -98,7 +98,7 @@ def get_minute_status_location(minute, block_segments, layover_threshold, trips_
             if dep_sec < current_sec and pd.notnull(narr) and current_sec < narr:
                 if nstp == row['stop_id']:
                     gap = narr - dep_sec
-                    if gap > layover_threshold * 60:
+                    if gap > LAYOVER_THRESHOLD * 60:
                         return ("laying over", row['stop_id'], rname, dirid, row['stop_id'])
                     else:
                         return ("running route", "traveling between stops", rname, dirid, "")
@@ -132,11 +132,11 @@ def get_minute_status_location(minute, block_segments, layover_threshold, trips_
 # ================================
 # DATA LOADING
 # ================================
-stop_times = pd.read_csv(os.path.join(base_input_path, stop_times_file), dtype=str)
-trips = pd.read_csv(os.path.join(base_input_path, trips_file), dtype=str)
-calendar = pd.read_csv(os.path.join(base_input_path, calendar_file), dtype=str)
-stops = pd.read_csv(os.path.join(base_input_path, stops_file), dtype=str)
-routes = pd.read_csv(os.path.join(base_input_path, routes_file), dtype=str)
+stop_times = pd.read_csv(os.path.join(BASE_INPUT_PATH, STOP_TIMES_FILE), dtype=str)
+trips = pd.read_csv(os.path.join(BASE_INPUT_PATH, TRIPS_FILE), dtype=str)
+calendar = pd.read_csv(os.path.join(BASE_INPUT_PATH, CALENDAR_FILE), dtype=str)
+stops = pd.read_csv(os.path.join(BASE_INPUT_PATH, STOPS_FILE), dtype=str)
+routes = pd.read_csv(os.path.join(BASE_INPUT_PATH, ROUTES_FILE), dtype=str)
 
 stop_name_map = stops.set_index('stop_id')['stop_name'].to_dict()
 
@@ -144,7 +144,7 @@ stop_name_map = stops.set_index('stop_id')['stop_name'].to_dict()
 # DATA PREPARATION
 # ================================
 # Whitelist only service_id=1
-trips = trips[trips['service_id'] == whitelisted_service_id]
+trips = trips[trips['service_id'] == WHITELISTED_SERVICE_ID]
 
 trips = trips.merge(routes[['route_id','route_short_name']], on='route_id', how='left')
 stop_times = stop_times[stop_times['trip_id'].isin(trips['trip_id'])]
@@ -162,7 +162,7 @@ stop_times['layover_duration'] = stop_times['next_arrival_seconds'] - stop_times
 stop_times['layover_duration'] = stop_times['layover_duration'].apply(lambda x: x+86400 if (pd.notnull(x) and x<0) else x)
 stop_times['is_layover'] = (
     (stop_times['stop_id'] == stop_times['next_stop_id']) &
-    (stop_times['layover_duration'] <= layover_threshold * 60) &
+    (stop_times['layover_duration'] <= LAYOVER_THRESHOLD * 60) &
     (stop_times['layover_duration'] > 0)
 )
 
@@ -201,7 +201,7 @@ for b_id in all_blocks:
 
     results = []
     for m in block_df['minute']:
-        status, location, rname, dirid, sid = get_minute_status_location(m, b_segments, layover_threshold, trips_info)
+        status, location, rname, dirid, sid = get_minute_status_location(m, b_segments, LAYOVER_THRESHOLD, trips_info)
         results.append((status, location, rname, dirid, sid))
 
     block_df['status'] = [r[0] for r in results]
@@ -216,7 +216,7 @@ for b_id in all_blocks:
 
     block_dataframes[b_id] = block_df.copy()
 
-    output_file = os.path.join(base_output_path, f"block_{b_id}_detailed.xlsx")
+    output_file = os.path.join(BASE_OUTPUT_PATH, f"block_{b_id}_detailed.xlsx")
     block_df[['minute','time_str','block_id','route_short_name','direction','stop_id','stop_name','status']].to_excel(output_file, index=False)
     print(f"Created {output_file}")
 
@@ -285,7 +285,7 @@ def create_per_stop_excels(stops_of_interest, block_dataframes, output_folder):
         print(f"Created per-stop file for stop {s_id}: {output_file}")
 
 
-create_per_stop_excels(stops_of_interest, block_dataframes, base_output_path)
+create_per_stop_excels(stops_of_interest, block_dataframes, BASE_OUTPUT_PATH)
 
 print("Per-stop processing completed.")
 
@@ -379,6 +379,6 @@ def create_summary_of_summaries(stops_of_interest, block_dataframes, output_fold
     print(f"Created cluster-level summary of summaries: {output_file}")
 
 # Create the summary of summaries
-create_summary_of_summaries(stops_of_interest, block_dataframes, base_output_path)
+create_summary_of_summaries(stops_of_interest, block_dataframes, BASE_OUTPUT_PATH)
 
 
