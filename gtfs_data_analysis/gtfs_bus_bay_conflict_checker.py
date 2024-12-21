@@ -510,10 +510,10 @@ def create_summary_of_summaries(stops_of_interest, block_dataframes, output_fold
     )
 
     # Write out the cluster-level summary
-    output_file = os.path.join(
+    summary_output_file = os.path.join(
         output_folder, "cluster_summary_of_summaries.xlsx"
     )
-    with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
+    with pd.ExcelWriter(summary_output_file, engine='openpyxl') as writer:
         # Define columns explicitly without 'conflict'
         base_cols = [
             'minute', 'time_str', 'num_blocks', 
@@ -535,7 +535,7 @@ def create_summary_of_summaries(stops_of_interest, block_dataframes, output_fold
             writer, sheet_name='Cluster_Summary', index=False
         )
 
-    print(f"Created cluster-level summary of summaries: {output_file}")
+    print(f"Created cluster-level summary of summaries: {summary_output_file}")
 
 
 # Create the summary of summaries
