@@ -110,8 +110,7 @@ def get_minute_status_location(minute, block_segments, LAYOVER_THRESHOLD, trips_
                 )
 
             # Between stops or layover
-            if (dep_sec < current_sec and pd.notnull(narr)
-                and current_sec < narr):
+            if dep_sec < current_sec < narr and pd.notnull(narr):
                 if nstp == row['stop_id']:
                     gap = narr - dep_sec
                     if gap > LAYOVER_THRESHOLD * 60:
