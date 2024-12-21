@@ -9,12 +9,12 @@ import pandas as pd
 # --------------------------------------------------------------------------
 # User-defined variables
 # --------------------------------------------------------------------------
-census_blocks = r"G:\projects\dot\zkrohmal\springfield_franconia_ridership_by_area_map\data\tl_2024_51_tabblock20\tl_2024_51_tabblock20.shp"
+census_blocks = r"file\path\to_your\census_polygons.shp"
 # This can be either a .shp or a .txt (GTFS stops.txt)
-bus_stops_input = r"G:\projects\dot\zkrohmal\franconia_springfield_stops_by_ridership_map\connector_gtfs\stops.txt"
-excel_file = r"G:\projects\dot\zkrohmal\franconia_springfield_stops_by_ridership_map\ridership_by_stop_2019\STOP_USAGE_(BY_STOP_ID)_SEP_2019.xlsx"
+bus_stops_input = r"file\path\to_your\bus_stops.shp or \stops.txt"
+excel_file = r"file\path\to_your\ridership_by_stop.xlsx"
 
-output_folder = r"G:\projects\dot\zkrohmal\springfield_franconia_ridership_by_area_map\output_combined"
+output_folder = r"folder\path\to\your\output_folder"
 if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 
