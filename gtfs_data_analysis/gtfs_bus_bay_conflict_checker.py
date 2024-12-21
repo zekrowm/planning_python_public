@@ -63,7 +63,7 @@ def get_trip_ranges_and_ends(block_segments):
         start_stop = tsub.iloc[0]['stop_id']
         end_stop = tsub.iloc[-1]['stop_id']
         trips_info.append((
-            tid, trip_start, trip_end, route_short_name, 
+            tid, trip_start, trip_end, route_short_name,
             direction_id, start_stop, end_stop
         ))
     trips_info.sort(key=lambda x: x[1])
@@ -110,7 +110,7 @@ def get_minute_status_location(minute, block_segments, LAYOVER_THRESHOLD, trips_
                 )
 
             # Between stops or layover
-            if (dep_sec < current_sec and pd.notnull(narr) 
+            if (dep_sec < current_sec and pd.notnull(narr)
                 and current_sec < narr):
                 if nstp == row['stop_id']:
                     gap = narr - dep_sec
@@ -186,7 +186,7 @@ stop_name_map = stops.set_index('stop_id')['stop_name'].to_dict()
 trips = trips[trips['service_id'] == WHITELISTED_SERVICE_ID]
 
 trips = trips.merge(
-    routes[['route_id', 'route_short_name']], 
+    routes[['route_id', 'route_short_name']],
     on='route_id', how='left'
 )
 stop_times = stop_times[
@@ -195,7 +195,7 @@ stop_times = stop_times[
 stop_times = stop_times.merge(
     trips[
         ['trip_id', 'block_id', 'route_id', 'route_short_name', 'direction_id']
-    ], 
+    ],
     on='trip_id', how='left'
 )
 
@@ -292,7 +292,7 @@ for b_id in all_blocks:
     block_df['block_id'] = b_id
     inactive_mask = block_df['status'] == "inactive"
     block_df.loc[
-        inactive_mask, ['block_id', 'route_short_name', 
+        inactive_mask, ['block_id', 'route_short_name',
                        'direction', 'stop_id', 'stop_name']
     ] = ""
 
@@ -345,7 +345,7 @@ def create_per_stop_excels(stops_of_interest, block_dataframes, output_folder):
         for b_id in blocks_serving_stop:
             bdf = block_dataframes[b_id]
             presence_mask = (
-                (bdf['stop_id'] == s_id) & 
+                (bdf['stop_id'] == s_id) &
                 (bdf['status'] != 'inactive')
             )
             present_minutes = bdf[presence_mask]
@@ -453,14 +453,14 @@ def create_summary_of_summaries(stops_of_interest, block_dataframes, output_fold
     for s_id in stops_of_interest:
         # Identify blocks serving this stop
         blocks_serving_stop = [
-            b_id for b_id, bdf in block_dataframes.items() 
+            b_id for b_id, bdf in block_dataframes.items()
             if (bdf['stop_id'] == s_id).any()
         ]
 
         for b_id in blocks_serving_stop:
             bdf = block_dataframes[b_id]
             presence_mask = (
-                (bdf['stop_id'] == s_id) & 
+                (bdf['stop_id'] == s_id) &
                 (bdf['status'] != 'inactive')
             )
             present_minutes = bdf[presence_mask]
@@ -542,4 +542,3 @@ def create_summary_of_summaries(stops_of_interest, block_dataframes, output_fold
 create_summary_of_summaries(
     stops_of_interest, block_dataframes, BASE_OUTPUT_PATH
 )
-
