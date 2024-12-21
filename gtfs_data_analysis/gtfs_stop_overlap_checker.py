@@ -23,8 +23,18 @@ os.makedirs(base_output_path, exist_ok=True)
 # Layover threshold in minutes
 layover_threshold = 20
 
-# Only consider service_id=1 for weekdays
-whitelisted_service_id = '1'
+# Define service_id for analysis
+whitelisted_service_id = '1'  # Replace with your desired service_id from calendar.txt
+
+# Validate service_id
+calendar = pd.read_csv(os.path.join(base_input_path, calendar_file), dtype=str)
+available_service_ids = calendar['service_id'].unique()
+
+if whitelisted_service_id not in available_service_ids:
+    raise ValueError(
+        f"The service_id '{whitelisted_service_id}' is invalid.\n"
+        f"Available service_id(s) from calendar.txt: {', '.join(available_service_ids)}."
+    )
 
 # Stops to analyze, based on stop_id
 stops_of_interest = ['6307', '6215']
