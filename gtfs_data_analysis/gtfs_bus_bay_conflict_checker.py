@@ -466,7 +466,7 @@ def create_summary_of_summaries(stops_of_interest, block_dataframes, output_fold
             present_minutes = bdf[presence_mask]
 
             for idx, row in present_minutes.iterrows():
-                m = row['minute']
+                minute = row['minute']
                 # Add block and route info to the cluster-level summary for all stops
                 if row['block_id']:
                     cluster_summary_df.at[m, 'blocks_present'].append(row['block_id'])
