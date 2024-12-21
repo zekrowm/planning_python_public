@@ -468,15 +468,11 @@ def create_summary_of_summaries(stops_of_interest, block_dataframes, output_fold
                 minute = row['minute']
                 # Add block and route info to the cluster-level summary for all stops
                 if row['block_id']:
-                    cluster_summary_df.at[m, 'blocks_present'].append(row['block_id'])
-                    per_stop_blocks[s_id][m].append(row['block_id'])
+                    cluster_summary_df.at[minute, 'blocks_present'].append(row['block_id'])
+                    per_stop_blocks[s_id][minute].append(row['block_id'])
                 if row['route_short_name']:
-                    cluster_summary_df.at[m, 'routes_present'].append(
-                        row['route_short_name']
-                    )
-                    per_stop_routes[s_id][m].append(
-                        row['route_short_name']
-                    )
+                    cluster_summary_df.at[minute, 'routes_present'].append(row['route_short_name'])
+                    per_stop_routes[s_id][minute].append(row['route_short_name'])
 
     # Convert the top-level lists into strings
     cluster_summary_df['blocks_present_str'] = cluster_summary_df['blocks_present'].apply(
