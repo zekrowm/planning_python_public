@@ -14,16 +14,16 @@ from openpyxl.utils import get_column_letter
 # ==============================
 
 # Input directory containing GTFS files
-gtfs_input_path = r'\\your_file_path\here\\'
+GTFS_INPUT_PATH = r'\\your_file_path\here\\'
 
 # Output directory for the Excel file
-output_path = r'\\your_file_path\here\\'
+OUTPUT_PATH = r'\\your_file_path\here\\'
 
 # GTFS files to load
 gtfs_files = ['routes.txt', 'trips.txt', 'stop_times.txt', 'calendar.txt', 'calendar_dates.txt']
 
 # Output Excel file name (base name)
-output_excel = "route_schedule_headway_with_modes.xlsx"
+OUTPUT_EXCEL = "route_schedule_headway_with_modes.xlsx"
 
 # Define time blocks with start and end times in 'HH:MM' format
 time_blocks_config = {
@@ -187,7 +187,7 @@ def merge_headways(trip_times, headway_dict):
     )
     return trip_times
 
-def save_to_excel(final_data, output_path, output_file):
+def save_to_excel(final_data, OUTPUT_PATH, output_file):
     wb = Workbook()
     ws = wb.active
     ws.title = "Route_Schedule_Headway"
@@ -205,19 +205,19 @@ def save_to_excel(final_data, output_path, output_file):
         for cell in col:
             cell.alignment = Alignment(horizontal='center')
     
-    os.makedirs(output_path, exist_ok=True)
-    output_file_path = os.path.join(output_path, output_file)
+    os.makedirs(OUTPUT_PATH, exist_ok=True)
+    output_file_path = os.path.join(OUTPUT_PATH, output_file)
     wb.save(output_file_path)
     print(f"Final data successfully saved to {output_file_path}")
 
 def main():
     try:
         print("Checking input files...")
-        check_input_files(gtfs_input_path, gtfs_files)
+        check_input_files(GTFS_INPUT_PATH, gtfs_files)
         print("All input files are present.\n")
 
         print("Loading GTFS data...")
-        data = load_gtfs_data(gtfs_input_path, gtfs_files)
+        data = load_gtfs_data(GTFS_INPUT_PATH, gtfs_files)
         print("GTFS data loaded successfully.\n")
 
         print("Parsing time block definitions...")
@@ -304,9 +304,9 @@ def main():
             print("Headways merged.\n")
 
             # Save to Excel with schedule_type in filename
-            output_file_for_schedule = f"{schedule_type}_{output_excel}"
+            output_file_for_schedule = f"{schedule_type}_{OUTPUT_EXCEL}"
             print(f"Saving data for {schedule_type} to Excel...")
-            save_to_excel(final_data, output_path, output_file_for_schedule)
+            save_to_excel(final_data, OUTPUT_PATH, output_file_for_schedule)
             print(f"Data for {schedule_type} saved.\n")
 
         print("All schedule types processed successfully!")
