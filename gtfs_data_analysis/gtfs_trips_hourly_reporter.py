@@ -18,10 +18,10 @@ from openpyxl.styles import Alignment
 # ==============================
 
 # Input directory containing GTFS files
-base_input_path = r'\\your_file_path\here\\'
+BASE_INPUT_PATH = r'\\your_file_path\here\\'
 
 # Output directory for the Excel file
-base_output_path = r'\\your_file_path\here\\'
+BASE_OUTPUT_PATH = r'\\your_file_path\here\\'
 
 # GTFS files to load
 gtfs_files = ['trips.txt', 'stop_times.txt', 'routes.txt', 'stops.txt', 'calendar.txt']
@@ -181,13 +181,13 @@ def main():
     """Main function to execute the script."""
     try:
         # Check if all input files exist
-        check_input_files(base_input_path, gtfs_files)
+        check_input_files(BASE_INPUT_PATH, gtfs_files)
         
         # Load GTFS data
-        data = load_gtfs_data(base_input_path, gtfs_files)
+        data = load_gtfs_data(BASE_INPUT_PATH, gtfs_files)
         
         # Process data and export to Excel
-        process_and_export(data, route_directions, base_output_path)
+        process_and_export(data, route_directions, BASE_OUTPUT_PATH)
         
     except Exception as e:
         print(f"An error occurred: {e}")
