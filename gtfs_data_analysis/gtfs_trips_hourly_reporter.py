@@ -1,6 +1,13 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+"""
+gtfs_trips_hourly_reporter.py
+
+This module processes General Transit Feed Specification (GTFS) data to generate
+hourly reports of trips for selected routes and exports the results to an Excel workbook.
+"""
+
 import os
 import pandas as pd
 from openpyxl import Workbook
