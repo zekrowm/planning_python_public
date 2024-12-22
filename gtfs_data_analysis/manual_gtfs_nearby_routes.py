@@ -1,12 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[3]:
-
-
-#!/usr/bin/env python
-# coding: utf-8
-
 import os
 import pandas as pd
 import geopandas as gpd
