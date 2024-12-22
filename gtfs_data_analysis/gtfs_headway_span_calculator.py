@@ -20,7 +20,13 @@ GTFS_INPUT_PATH = r'\\your_file_path\here\\'
 OUTPUT_PATH = r'\\your_file_path\here\\'
 
 # GTFS files to load
-gtfs_files = ['routes.txt', 'trips.txt', 'stop_times.txt', 'calendar.txt', 'calendar_dates.txt']
+gtfs_files = [
+    'routes.txt',
+    'trips.txt',
+    'stop_times.txt',
+    'calendar.txt',
+    'calendar_dates.txt'
+]
 
 # Output Excel file name (base name)
 OUTPUT_EXCEL = "route_schedule_headway_with_modes.xlsx"
@@ -51,7 +57,9 @@ def check_input_files(base_path, files):
     for file_name in files:
         file_path = os.path.join(base_path, file_name)
         if not os.path.exists(file_path):
-            raise FileNotFoundError(f"The required GTFS file {file_name} does not exist in {base_path}.")
+            raise FileNotFoundError(
+                f"The required GTFS file {file_name} does not exist in {base_path}."
+            )
 
 def load_gtfs_data(base_path, files):
     data = {}
@@ -70,7 +78,9 @@ def parse_time_blocks(time_blocks_str):
     for block_name, (start_str, end_str) in time_blocks_str.items():
         start_parts = start_str.split(':')
         end_parts = end_str.split(':')
-        start_td = timedelta(hours=int(start_parts[0]), minutes=int(start_parts[1]))
+        start_td = timedelta(
+            hours=int(start_parts[0]), minutes=int(start_parts[1])
+        )
         end_td = timedelta(hours=int(end_parts[0]), minutes=int(end_parts[1]))
         parsed_blocks[block_name] = (start_td, end_td)
     return parsed_blocks
@@ -92,7 +102,9 @@ def format_timedelta(td):
 def find_large_break(trip_times):
     late_morning = pd.Timedelta(hours=10)
     early_afternoon = pd.Timedelta(hours=14)
-    midday_trips = trip_times[(trip_times >= late_morning) & (trip_times <= early_afternoon)]
+    midday_trips = trip_times[
+        (trip_times >= late_morning) & (trip_times <= early_afternoon)
+    ]
     midday_trips = midday_trips.reset_index(drop=True)
     if len(midday_trips) < 2:
         return False
@@ -149,7 +161,9 @@ def calculate_headways(departure_times):
     return headways.mode()[0]
 
 def process_headways(merged_data):
-    headways = merged_data.groupby(['route_short_name', 'route_long_name', 'direction_id', 'time_block'])['departure_time'].apply(calculate_headways).reset_index()
+    headways = merged_data.groupby(
+        ['route_short_name', 'route_long_name', 'direction_id', 'time_block']
+    )['departure_time'].apply(calculate_headways).reset_index()
     headway_dict = {
         'weekday_am_headway': {},
         'weekday_midday_headway': {},
@@ -170,19 +184,27 @@ def process_headways(merged_data):
 
 def merge_headways(trip_times, headway_dict):
     trip_times['weekday_am_headway'] = trip_times.apply(
-        lambda row: headway_dict['weekday_am_headway'].get((row['route_short_name'], row['route_long_name'], row['direction_id']), None),
+        lambda row: headway_dict['weekday_am_headway'].get(
+            (row['route_short_name'], row['route_long_name'], row['direction_id']), None
+        ),
         axis=1
     )
     trip_times['weekday_midday_headway'] = trip_times.apply(
-        lambda row: headway_dict['weekday_midday_headway'].get((row['route_short_name'], row['route_long_name'], row['direction_id']), None),
+        lambda row: headway_dict['weekday_midday_headway'].get(
+            (row['route_short_name'], row['route_long_name'], row['direction_id']), None
+        ),
         axis=1
     )
     trip_times['weekday_pm_headway'] = trip_times.apply(
-        lambda row: headway_dict['weekday_pm_headway'].get((row['route_short_name'], row['route_long_name'], row['direction_id']), None),
+        lambda row: headway_dict['weekday_pm_headway'].get(
+            (row['route_short_name'], row['route_long_name'], row['direction_id']), None
+        ),
         axis=1
     )
     trip_times['weekday_night_headway'] = trip_times.apply(
-        lambda row: headway_dict['weekday_night_headway'].get((row['route_short_name'], row['route_long_name'], row['direction_id']), None),
+        lambda row: headway_dict['weekday_night_headway'].get(
+            (row['route_short_name'], row['route_long_name'], row['direction_id']), None
+        ),
         axis=1
     )
     return trip_times
@@ -191,20 +213,22 @@ def save_to_excel(final_data, OUTPUT_PATH, output_file):
     wb = Workbook()
     ws = wb.active
     ws.title = "Route_Schedule_Headway"
-    
+
     headers = final_data.columns.tolist()
     ws.append(headers)
-    
+
     for row in final_data.itertuples(index=False, name=None):
         ws.append(row)
-    
+
     for col in ws.columns:
-        max_length = max(len(str(cell.value)) if cell.value is not None else 0 for cell in col) + 2
+        max_length = max(
+            len(str(cell.value)) if cell.value is not None else 0 for cell in col
+        ) + 2
         col_letter = get_column_letter(col[0].column)
         ws.column_dimensions[col_letter].width = max_length
         for cell in col:
             cell.alignment = Alignment(horizontal='center')
-    
+
     os.makedirs(OUTPUT_PATH, exist_ok=True)
     output_file_path = os.path.join(OUTPUT_PATH, output_file)
     wb.save(output_file_path)
@@ -250,47 +274,70 @@ def main():
                 continue
 
             # Merge routes and trip info
-            trip_info = trips_filtered[['trip_id', 'route_id', 'service_id', 'direction_id']].merge(
-                routes[['route_id', 'route_short_name', 'route_long_name']], on='route_id'
+            trip_info = trips_filtered[
+                ['trip_id', 'route_id', 'service_id', 'direction_id']
+            ].merge(
+                routes[['route_id', 'route_short_name', 'route_long_name']],
+                on='route_id'
             )
-            print(f"Merged trip information has {len(trip_info)} records for {schedule_type}.\n")
+            print(
+                f"Merged trip information has {len(trip_info)} records for {schedule_type}.\n"
+            )
 
             # Merge trip info with stop_times
             merged_data = stop_times[['trip_id', 'departure_time', 'stop_sequence']].merge(
                 trip_info, on='trip_id'
             )
-            print(f"Merged data has {len(merged_data)} records for {schedule_type}.\n")
+            print(
+                f"Merged data has {len(merged_data)} records for {schedule_type}.\n"
+            )
 
             # Filter to include only starting stops
             merged_data = merged_data[merged_data['stop_sequence'] == 1]
-            print(f"Filtered starting trips count: {len(merged_data)} for {schedule_type}\n")
+            print(
+                f"Filtered starting trips count: {len(merged_data)} for {schedule_type}\n"
+            )
 
             if merged_data.empty:
-                print(f"No starting trips for {schedule_type}. Skipping.\n")
+                print(
+                    f"No starting trips for {schedule_type}. Skipping.\n"
+                )
                 continue
 
             # Convert departure_time to timedelta
-            merged_data['departure_time'] = pd.to_timedelta(merged_data['departure_time'], errors='coerce')
+            merged_data['departure_time'] = pd.to_timedelta(
+                merged_data['departure_time'], errors='coerce'
+            )
             merged_data = merged_data.dropna(subset=['departure_time'])
             if merged_data.empty:
-                print(f"All departure_times invalid for {schedule_type}. Skipping.\n")
+                print(
+                    f"All departure_times invalid for {schedule_type}. Skipping.\n"
+                )
                 continue
 
             print("Assigning time blocks...")
-            merged_data['time_block'] = merged_data['departure_time'].apply(lambda x: assign_time_block(x, time_blocks))
+            merged_data['time_block'] = merged_data['departure_time'].apply(
+                lambda x: assign_time_block(x, time_blocks)
+            )
             print("Time blocks assigned.\n")
 
             # Filter out 'other' time blocks
             merged_data = merged_data[merged_data['time_block'] != 'other']
-            print(f"Trips after filtering 'other' time blocks: {len(merged_data)} for {schedule_type}\n")
+            print(
+                f"Trips after filtering 'other' time blocks: {len(merged_data)} for {schedule_type}\n"
+            )
 
             if merged_data.empty:
-                print(f"No trips left after filtering 'other' time blocks for {schedule_type}. Skipping.\n")
+                print(
+                    f"No trips left after filtering 'other' time blocks for {schedule_type}. Skipping.\n"
+                )
                 continue
 
             # Group by route and direction, calculate trip times
             print("Calculating trip times...")
-            trip_times = merged_data.groupby(['route_short_name', 'route_long_name', 'direction_id']).apply(calculate_trip_times).reset_index()
+            trip_times = merged_data.groupby(
+                ['route_short_name', 'route_long_name', 'direction_id']
+            ).apply(calculate_trip_times).reset_index()
             print("Trip times calculated.\n")
 
             # Calculate headways
