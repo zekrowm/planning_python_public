@@ -83,7 +83,7 @@ def fix_time_format(time_str):
 
     return ":".join(parts)
 
-def process_and_export(data, route_directions, output_path):
+def process_and_export(data, route_dirs, output_path):
     """Process the GTFS data and export trips per hour to an Excel workbook."""
     trips = data['trips']
     stop_times = data['stop_times']
@@ -133,7 +133,7 @@ def process_and_export(data, route_directions, output_path):
     wb.remove(wb.active)  # Remove the default sheet
 
     # Process each route and direction
-    for rd in route_directions:
+    for rd in route_dirs:
         route_short = rd['route_short_name']
         direction_id = rd['direction_id']
 
@@ -168,7 +168,7 @@ def process_and_export(data, route_directions, output_path):
         sheet_name = (
             f"Route_{route_short}_Dir_{direction_id}" 
             if direction_id is not None 
-            else f"Route_{route_short}_All_Dirs"
+            else f"Route_{route_short}_All_Directions"
         )
         ws = wb.create_sheet(title=sheet_name)
 
