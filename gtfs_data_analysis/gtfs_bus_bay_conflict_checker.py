@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+"""
+This script identifies conflicts in GTFS bus bay usage by analyzing
+stop times, trips, and layovers/dwell times for selected stops of 
+interest.
+"""
+
 import os
 import math
 
