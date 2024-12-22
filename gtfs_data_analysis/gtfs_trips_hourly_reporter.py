@@ -155,8 +155,12 @@ def process_and_export(data, route_directions, output_path):
 
         # Extract hour from departure_time and count trips per hour
         start_times_hour = start_times.copy()
-        start_times_hour['departure_hour'] = start_times_hour['departure_time'].apply(lambda t: t.hour)
-        trips_per_hour = start_times_hour.groupby('departure_hour').size().reset_index(name='trip_count')
+        start_times_hour['departure_hour'] = start_times_hour['departure_time'].apply(
+            lambda t: t.hour
+        )
+        trips_per_hour = start_times_hour.groupby('departure_hour').size().reset_index(
+            name='trip_count'
+        )
         print(f"Trips per hour for route {route_short} direction {direction_id}:")
         print(trips_per_hour)
 
