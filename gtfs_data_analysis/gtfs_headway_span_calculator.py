@@ -1,19 +1,13 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[4]:
-
-
-#!/usr/bin/env python
-# coding: utf-8
-
 import os
-import pandas as pd
 from datetime import timedelta
-import numpy as np
+
+import pandas as pd
 from openpyxl import Workbook
-from openpyxl.utils import get_column_letter
 from openpyxl.styles import Alignment
+from openpyxl.utils import get_column_letter
 
 # ==============================
 # CONFIGURATION SECTION - CUSTOMIZE HERE
