@@ -169,10 +169,9 @@ def get_minute_status_location(minute, block_segments, trips_info):
             break
 
     if prev_trip:
-        _, _, _, _, _, _, last_end_stop = prev_trip
+        _, _, _, _, _, last_end_stop = prev_trip
         return ("laying over", last_end_stop, "", "", last_end_stop)
-    else:
-        return ("inactive", "inactive", "", "", "")
+    return ("inactive", "inactive", "", "", "")
 
 # ================================
 # DATA LOADING
