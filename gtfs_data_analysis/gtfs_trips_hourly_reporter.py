@@ -7,11 +7,11 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import os
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Alignment
-import os
 
 # ==============================
 # CONFIGURATION SECTION - CUSTOMIZE HERE
