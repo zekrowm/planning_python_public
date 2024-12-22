@@ -211,8 +211,6 @@ def main():
         print(f"Parsing error while reading GTFS files: {parse_error}")
     except PermissionError as perm_error:
         print(f"Permission error: {perm_error}")
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
 
 if __name__ == "__main__":
     main()
