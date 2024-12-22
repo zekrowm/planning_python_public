@@ -2,8 +2,9 @@
 # coding: utf-8
 
 import os
-import pandas as pd
 import math
+
+import pandas as pd
 
 # ================================
 # CONFIGURATION SECTION
