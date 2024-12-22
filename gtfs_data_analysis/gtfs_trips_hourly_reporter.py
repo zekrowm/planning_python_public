@@ -88,7 +88,6 @@ def process_and_export(data, route_directions, output_path):
     trips = data['trips']
     stop_times = data['stop_times']
     routes = data['routes']
-    stops = data['stops']
     calendar = data['calendar']
 
     # Filter the calendar for services available on weekdays (Monday through Friday)
