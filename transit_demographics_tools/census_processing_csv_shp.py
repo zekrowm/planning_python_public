@@ -1,11 +1,9 @@
-
-
 #!/usr/bin/env python
 # coding: utf-8
 
+import os
 import geopandas as gpd
 import pandas as pd
-import os
 import matplotlib.pyplot as plt
 
 # ==============================
