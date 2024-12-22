@@ -148,7 +148,7 @@ def calculate_headways(departure_times):
         return None
     return headways.mode()[0]
 
-def process_headways(merged_data, time_blocks):
+def process_headways(merged_data):
     headways = merged_data.groupby(['route_short_name', 'route_long_name', 'direction_id', 'time_block'])['departure_time'].apply(calculate_headways).reset_index()
     headway_dict = {
         'weekday_am_headway': {},
@@ -295,7 +295,7 @@ def main():
 
             # Calculate headways
             print("Calculating headways...")
-            headway_dict = process_headways(merged_data, time_blocks)
+            headway_dict = process_headways(merged_data)
             print("Headways calculated.\n")
 
             # Merge headways with trip times
