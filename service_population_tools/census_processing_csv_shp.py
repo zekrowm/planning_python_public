@@ -1,6 +1,27 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+"""
+Census Data Processing Script
+
+This script processes census data by performing the following operations:
+- Loads and merges shapefiles from specified input directories.
+- Filters geographic data based on provided FIPS codes.
+- Processes various demographic datasets including population, households, jobs, income, ethnicity, language proficiency, vehicle ownership, and age.
+- Merges tract-level and block-level data to calculate estimates.
+- Exports the processed data to CSV and shapefile formats for further analysis.
+
+Configuration:
+- Customize input and output directories in the configuration section.
+- Specify the relevant input files and FIPS codes to tailor the data processing to your needs.
+
+Dependencies:
+- os
+- geopandas
+- pandas
+- matplotlib.pyplot
+"""
+
 import os
 import geopandas as gpd
 import pandas as pd
