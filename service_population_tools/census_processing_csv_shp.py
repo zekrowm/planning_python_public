@@ -11,10 +11,10 @@ import matplotlib.pyplot as plt
 # ==============================
 
 # Base input and output folders
-base_input_folder = r'\\your_file_path\here\\'
-base_output_folder = r'\\your_file_path\here\\'
+BASE_INPUT_FOLDER = r'\\your_file_path\here\\'
+BASE_OUTPUT_FOLDER = r'\\your_file_path\here\\'
 
-# SHP data by tract (relative to base_input_folder)
+# SHP data by tract (relative to BASE_INPUT_FOLDER)
 input_files = [
     "tl_2023_11_tabblock20/tl_2023_11_tabblock20.shp",
     "tl_2023_24_tabblock20/tl_2023_24_tabblock20.shp",
@@ -47,7 +47,7 @@ file_paths_h9 = [
 dtypes_h9 = {'GEO_ID': str, 'H9_001N': 'Int64'}
 
 # Jobs data by block (JT00)
-base_path_jobs = base_input_folder  # Use the base input folder
+base_path_jobs = BASE_INPUT_FOLDER  # Use the base input folder
 
 # Income data by tract (B19001)
 csv_files_income = [
@@ -79,7 +79,7 @@ csv_files_age = [
     # Replace with your folder and file name(s)
 ]
 
-# Output paths (relative to base_output_folder)
+# Output paths (relative to BASE_OUTPUT_FOLDER)
 csv_output_filename = 'df_joined_blocks.csv' # Replace with your preferred file name
 shapefile_folder_name = "va_md_dc_census_blocks_folder" # Replace with your preferred folder name
 
@@ -89,7 +89,7 @@ shapefile_folder_name = "va_md_dc_census_blocks_folder" # Replace with your pref
 
 # ----------------------- SHP DATA BY TRACT ------------------------------
 # Load and merge all shapefiles into a single GeoDataFrame
-gdf_list = [gpd.read_file(os.path.join(base_input_folder, file)) for file in input_files]
+gdf_list = [gpd.read_file(os.path.join(BASE_INPUT_FOLDER, file)) for file in input_files]
 merged_gdf = gpd.GeoDataFrame(pd.concat(gdf_list, ignore_index=True), crs=gdf_list[0].crs)
 
 # Create a new 'FIPS' column and filter based on FIPS codes
@@ -106,13 +106,13 @@ column_mapping_p1 = {'GEO_ID': 'GEO_ID', 'NAME': 'NAME', 'P1_001N': 'total_pop'}
 
 # Read and combine CSV files for population data
 df_population = pd.concat([
-    pd.read_csv(os.path.join(base_input_folder, f), skiprows=[1]).rename(columns=column_mapping_p1)[list(column_mapping_p1.values())]
+    pd.read_csv(os.path.join(BASE_INPUT_FOLDER, f), skiprows=[1]).rename(columns=column_mapping_p1)[list(column_mapping_p1.values())]
     for f in csv_files_p1], ignore_index=True)
 
 # --------------------- HOUSEHOLDS DATA BY BLOCK (H9) ------------------------------
 # Read and process household data
 df_household = pd.concat([
-    pd.read_csv(os.path.join(base_input_folder, file), dtype=dtypes_h9, skiprows=[1]).rename(columns={'H9_001N': 'total_hh'})[['GEO_ID', 'total_hh']]
+    pd.read_csv(os.path.join(BASE_INPUT_FOLDER, file), dtype=dtypes_h9, skiprows=[1]).rename(columns={'H9_001N': 'total_hh'})[['GEO_ID', 'total_hh']]
     for file in file_paths_h9], ignore_index=True)
 
 # --------------------- JOBS DATA BY BLOCK (JT00) ------------------------------
@@ -147,7 +147,7 @@ column_mapping_income = {
 }
 
 # Read and process income data
-df_income = pd.concat([pd.read_csv(os.path.join(base_input_folder, f), skiprows=[1]).rename(columns=column_mapping_income)[list(column_mapping_income.values())]
+df_income = pd.concat([pd.read_csv(os.path.join(BASE_INPUT_FOLDER, f), skiprows=[1]).rename(columns=column_mapping_income)[list(column_mapping_income.values())]
                        for f in csv_files_income], ignore_index=True)
 
 # Calculate total low-income households and percentage
@@ -173,7 +173,7 @@ column_mapping_ethnicity = {
 }
 
 # Read and process ethnicity data
-df_ethnicity = pd.concat([pd.read_csv(os.path.join(base_input_folder, f), skiprows=[1]).rename(columns=column_mapping_ethnicity)[list(column_mapping_ethnicity.values())]
+df_ethnicity = pd.concat([pd.read_csv(os.path.join(BASE_INPUT_FOLDER, f), skiprows=[1]).rename(columns=column_mapping_ethnicity)[list(column_mapping_ethnicity.values())]
                           for f in csv_files_ethnicity], ignore_index=True)
 
 # Calculate minority population and percentage
@@ -184,7 +184,7 @@ df_ethnicity = df_ethnicity.drop(['total_pop'], axis=1)
 
 # ----------------------- LANGUAGE DATA BY TRACT (C16001) ------------------------------
 # Read and process language proficiency data
-df_language = pd.read_csv(os.path.join(base_input_folder, lep_data_file), dtype={'GEO_ID': str}, skiprows=[1])
+df_language = pd.read_csv(os.path.join(BASE_INPUT_FOLDER, lep_data_file), dtype={'GEO_ID': str}, skiprows=[1])
 df_language = df_language.rename(columns={
     'C16001_001E': 'total_lang_pop',
     'C16001_005E': 'spanish_engnwell',
@@ -238,7 +238,7 @@ column_mapping_vehicle = {
 }
 
 # Read and process vehicle ownership data
-df_vehicle = pd.concat([pd.read_csv(os.path.join(base_input_folder, f), skiprows=[1]).rename(columns=column_mapping_vehicle)[list(column_mapping_vehicle.values())]
+df_vehicle = pd.concat([pd.read_csv(os.path.join(BASE_INPUT_FOLDER, f), skiprows=[1]).rename(columns=column_mapping_vehicle)[list(column_mapping_vehicle.values())]
                         for f in csv_files_vehicle], ignore_index=True)
 
 # Calculate total low-vehicle households and percentages
@@ -279,7 +279,7 @@ column_mapping_age = {
 }
 
 # Read and process age data
-df_age = pd.concat([pd.read_csv(os.path.join(base_input_folder, f), skiprows=[1]).rename(columns=column_mapping_age)[list(column_mapping_age.values())]
+df_age = pd.concat([pd.read_csv(os.path.join(BASE_INPUT_FOLDER, f), skiprows=[1]).rename(columns=column_mapping_age)[list(column_mapping_age.values())]
                     for f in csv_files_age], ignore_index=True)
 
 # Calculate youth (15-21 years) and elderly (65+ years) populations and percentages
@@ -374,12 +374,12 @@ for column in df_filtered_blocks.columns:
 
 # ------------------- EXPORT TO CSV AND SHAPEFILE ---------------------------
 # Define paths for saving the CSV and shapefile
-csv_output_path = os.path.join(base_output_folder, csv_output_filename)
+csv_output_path = os.path.join(BASE_OUTPUT_FOLDER, csv_output_filename)
 df_filtered_blocks.to_csv(csv_output_path, index=True)
 print(f"CSV file saved to: {csv_output_path}")
 
 # Create a dedicated folder for the shapefile
-shapefile_folder = os.path.join(base_output_folder, shapefile_folder_name)
+shapefile_folder = os.path.join(BASE_OUTPUT_FOLDER, shapefile_folder_name)
 os.makedirs(shapefile_folder, exist_ok=True)
 
 # Define the shapefile output path within the new folder
