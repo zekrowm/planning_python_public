@@ -80,8 +80,8 @@ csv_files_age = [
 ]
 
 # Output paths (relative to BASE_OUTPUT_FOLDER)
-csv_output_filename = 'df_joined_blocks.csv' # Replace with your preferred file name
-shapefile_folder_name = "va_md_dc_census_blocks_folder" # Replace with your preferred folder name
+CSV_OUTPUT_FILENAME = 'df_joined_blocks.csv' # Replace with your preferred file name
+SHAPEFILE_FOLDER_NAME = "va_md_dc_census_blocks_folder" # Replace with your preferred folder name
 
 # ===================================
 # END OF CONFIGURATION SECTION
@@ -374,12 +374,12 @@ for column in df_filtered_blocks.columns:
 
 # ------------------- EXPORT TO CSV AND SHAPEFILE ---------------------------
 # Define paths for saving the CSV and shapefile
-csv_output_path = os.path.join(BASE_OUTPUT_FOLDER, csv_output_filename)
+csv_output_path = os.path.join(BASE_OUTPUT_FOLDER, CSV_OUTPUT_FILENAME)
 df_filtered_blocks.to_csv(csv_output_path, index=True)
 print(f"CSV file saved to: {csv_output_path}")
 
 # Create a dedicated folder for the shapefile
-shapefile_folder = os.path.join(BASE_OUTPUT_FOLDER, shapefile_folder_name)
+shapefile_folder = os.path.join(BASE_OUTPUT_FOLDER, SHAPEFILE_FOLDER_NAME)
 os.makedirs(shapefile_folder, exist_ok=True)
 
 # Define the shapefile output path within the new folder
