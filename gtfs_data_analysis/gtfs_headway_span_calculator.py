@@ -6,7 +6,7 @@ GTFS Headway Span Calculator
 
 This script processes General Transit Feed Specification (GTFS) data to calculate
 headways for different routes and schedules. It reads GTFS files, assigns trips to
-defined time blocks, calculates trip times and headways, and exports the results
+defined time blocks, calculates headway, span, and trip counts, and exports the results
 to Excel files.
 
 Configuration:
@@ -196,17 +196,18 @@ def find_large_break(trip_times):
 
 def calculate_trip_times(group):
     """
-    Calculate first and last trip times, and AM/PM trip times based on trip schedule.
+    Calculate first and last trip times, AM/PM trip times, and the number of trips based on trip schedule.
 
     Args:
         group (pd.DataFrame): A DataFrame group containing departure times for a route and direction.
 
     Returns:
-        pd.Series: A series with calculated trip times.
+        pd.Series: A series with calculated trip times and trip count.
     """
     trip_times = group['departure_time'].sort_values()
     first_trip = trip_times.min()
     last_trip = trip_times.max()
+    trips_count = len(trip_times)  # Count the number of trips
 
     if first_trip >= pd.Timedelta(hours=15):
         # PM-only route
@@ -214,7 +215,8 @@ def calculate_trip_times(group):
             'first_trip_time': format_timedelta(first_trip),
             'last_trip_time': format_timedelta(last_trip),
             'am_last_trip_time': None,
-            'pm_first_trip_time': format_timedelta(first_trip)
+            'pm_first_trip_time': format_timedelta(first_trip),
+            'trips': trips_count  # Add trips count
         })
     elif last_trip <= pd.Timedelta(hours=10):
         # AM-only route
@@ -222,7 +224,8 @@ def calculate_trip_times(group):
             'first_trip_time': format_timedelta(first_trip),
             'last_trip_time': format_timedelta(last_trip),
             'am_last_trip_time': format_timedelta(last_trip),
-            'pm_first_trip_time': None
+            'pm_first_trip_time': None,
+            'trips': trips_count  # Add trips count
         })
     elif find_large_break(trip_times):
         # Normal route with midday break
@@ -232,7 +235,8 @@ def calculate_trip_times(group):
             'first_trip_time': format_timedelta(first_trip),
             'last_trip_time': format_timedelta(last_trip),
             'am_last_trip_time': format_timedelta(am_last_trip),
-            'pm_first_trip_time': format_timedelta(pm_first_trip)
+            'pm_first_trip_time': format_timedelta(pm_first_trip),
+            'trips': trips_count  # Add trips count
         })
     else:
         # Normal all-day route
@@ -240,7 +244,8 @@ def calculate_trip_times(group):
             'first_trip_time': format_timedelta(first_trip),
             'last_trip_time': format_timedelta(last_trip),
             'am_last_trip_time': None,
-            'pm_first_trip_time': None
+            'pm_first_trip_time': None,
+            'trips': trips_count  # Add trips count
         })
 
 def calculate_headways(departure_times):
