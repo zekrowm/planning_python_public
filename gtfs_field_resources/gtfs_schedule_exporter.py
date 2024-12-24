@@ -62,7 +62,7 @@ if not os.path.exists(BASE_OUTPUT_PATH):
 route_short_names_input = ['101', '102']  # Modify as needed
 
 # Time format option: '24' for 24-hour time, '12' for 12-hour time
-time_format_option = '12'  # Change to '24' for 24-hour format
+TIME_FORMAT_OPTION = '12'  # Change to '24' for 24-hour format
 
 # Placeholder values
 missing_time = "---"
@@ -493,7 +493,7 @@ for route_short_name in route_short_names:
                 trips_direction,
                 ordered_stop_names,
                 ordered_stop_ids,
-                time_format_option,
+                TIME_FORMAT_OPTION,
                 route_short_name,
                 schedule_type,
                 direction_id
