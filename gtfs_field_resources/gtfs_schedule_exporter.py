@@ -32,6 +32,7 @@ Usage:
 
 import os
 import re
+import sys
 import pandas as pd
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Alignment
@@ -391,10 +392,10 @@ try:
 except FileNotFoundError as e:
     print(f"Error: {e}")
     print("Please check your input file paths in the configuration section.")
-    exit(1)
+    sys.exit(1)
 except Exception as e:
     print(f"An unexpected error occurred while reading GTFS files: {e}")
-    exit(1)
+    sys.exit(1)
 
 # Convert 'stop_sequence' to numeric to ensure correct sorting
 stop_times['stop_sequence'] = pd.to_numeric(stop_times['stop_sequence'], errors='coerce')
@@ -415,7 +416,7 @@ elif isinstance(route_short_names_input, list):
     print(f"Selected routes: {route_short_names}")
 else:
     print("Error: 'route_short_names_input' must be either 'all', a comma-separated string, or a list of route short names.")
-    exit(1)
+    sys.exit(1)
 
 # Check for 'timepoint' column and filter timepoints
 if 'timepoint' in stop_times.columns:
