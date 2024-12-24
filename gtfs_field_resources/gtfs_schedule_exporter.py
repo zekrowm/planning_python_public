@@ -62,7 +62,7 @@ route_short_names_input = ['101', '102']  # Modify as needed
 TIME_FORMAT_OPTION = '12'  # Change to '24' for 24-hour format
 
 # Placeholder values
-missing_time = "---"
+MISSING_TIME = "---"
 
 # Maximum column width for Excel output (used to wrap long headers)
 max_column_width = 30  # Adjust as needed
@@ -82,7 +82,7 @@ def time_to_minutes(time_str):
     Allows hours >=24 for 24-hour format.
     Returns None if the format is invalid.
     """
-    if time_str == '---':
+    if time_str == MISSING_TIME:
         return None
     try:
         # Match 12-hour and 24-hour formats
@@ -106,7 +106,7 @@ def time_to_minutes(time_str):
 
 def check_schedule_order(df, ordered_stop_names, route_short_name, schedule_type, direction_id):
     """
-    Checks that times in the DataFrame increase across rows and down columns, ignoring '---'.
+    Checks that times in the DataFrame increase across rows and down columns, ignoring MISSING_TIME or '---'.
     Prints warnings with emojis if violations are found, and a checkmark if the schedule passes.
     """
     violations = False
@@ -115,7 +115,7 @@ def check_schedule_order(df, ordered_stop_names, route_short_name, schedule_type
     for _, row in df.iterrows():
         last_time = None
         for stop in ordered_stop_names:
-            time_str = row.get(f"{stop} Schedule", '---')
+            time_str = row.get(f"{stop} Schedule", MISSING_TIME)
             current_time = time_to_minutes(time_str)
             if current_time is None:
                 continue
@@ -128,7 +128,7 @@ def check_schedule_order(df, ordered_stop_names, route_short_name, schedule_type
     for stop in ordered_stop_names:
         last_time = None
         for idx, row in df.iterrows():
-            time_str = row.get(f"{stop} Schedule", '---')
+            time_str = row.get(f"{stop} Schedule", MISSING_TIME)
             current_time = time_to_minutes(time_str)
             if current_time is None:
                 continue
@@ -263,8 +263,8 @@ def process_trips_for_direction(relevant_trips_direction, ordered_stop_names, un
         # Initialize the row with route_name, direction_id, trip_headsign
         row = [route_name, trip_info['direction_id'], trip_headsign]
 
-        # Initialize schedule times with missing_time
-        schedule_times = [missing_time] * len(ordered_stop_ids)
+        # Initialize schedule times with MISSING_TIME
+        schedule_times = [MISSING_TIME] * len(ordered_stop_ids)
         valid_departure_times_24 = []
 
         for idx, stop in group.iterrows():
