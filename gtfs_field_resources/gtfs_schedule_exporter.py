@@ -111,7 +111,7 @@ def check_schedule_order(df, ordered_stop_names, route_short_name, schedule_type
     Prints warnings with emojis if violations are found, and a checkmark if the schedule passes.
     """
     violations = False
-    
+
     # Row-wise check: Ensure times increase from left to right within each trip
     for _, row in df.iterrows():
         last_time = None
