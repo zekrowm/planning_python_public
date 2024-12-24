@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import pandas as pd
+from datetime import datetime, timedelta
 import os
+import re
+import pandas as pd
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Alignment
-import re
-from datetime import datetime, timedelta
 
 # ==============================
 # CONFIGURATION SECTION - CUSTOMIZE HERE
