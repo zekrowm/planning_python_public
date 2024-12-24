@@ -20,9 +20,9 @@ stops_file = os.path.join(BASE_INPUT_PATH, "stops.txt")
 calendar_file = os.path.join(BASE_INPUT_PATH, "calendar.txt")
 
 # Output directory (update this path accordingly)
-base_output_path = r"C:\Path\To\Your\Output_Folder"  # Replace with your file path
-if not os.path.exists(base_output_path):
-    os.makedirs(base_output_path)
+BASE_OUTPUT_PATH = r"C:\Path\To\Your\Output_Folder"  # Replace with your file path
+if not os.path.exists(BASE_OUTPUT_PATH):
+    os.makedirs(BASE_OUTPUT_PATH)
 
 # List of route short names to process
 # Set to 'all' (string) to include all routes,
@@ -484,7 +484,7 @@ for route_short_name in route_short_names:
 
         # Define output file path
         output_file = os.path.join(
-            base_output_path,
+            BASE_OUTPUT_PATH,
             f"route_{route_short_name}_schedule_{schedule_type_safe}.xlsx"
         )
 
