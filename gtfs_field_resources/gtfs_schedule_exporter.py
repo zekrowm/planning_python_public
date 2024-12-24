@@ -1,6 +1,38 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+#!/usr/bin/env python
+# coding: utf-8
+
+"""
+GTFS Schedule Processor
+=======================
+
+This script processes General Transit Feed Specification (GTFS) data to generate 
+Excel reports for specified transit routes and schedules (e.g. route 99 weekday schedule). It reads GTFS files such 
+as trips, stop times, routes, stops, and calendar, and produces organized Excel 
+sheets with schedule times intended to emulate printed schedules provided to the public.
+
+Configuration:
+--------------
+- **Input Paths**: Specify the directories containing GTFS data files.
+- **Output Path**: Define the directory where the Excel reports will be saved.
+- **Route Selection**: Choose specific route short names to process or set to 'all' to include all routes.
+- **Time Format**: Select between 12-hour or 24-hour time formats for the output.
+
+Features:
+---------
+- Validates the chronological order of schedule times within trips and across stops.
+- Supports customization of maximum column widths in the Excel output.
+- Handles various schedule types based on service days, including weekdays, weekends, and special schedules.
+- Provides informative warnings and confirmations to assist in data verification.
+
+Usage:
+------
+1. **Configure the Settings**: Update the configuration section with appropriate input and output paths, route selections, and time format.
+2. **Run the Script**: Execute the script using a Python interpreter.
+"""
+
 import os
 import re
 import pandas as pd
