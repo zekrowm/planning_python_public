@@ -414,8 +414,12 @@ if isinstance(route_short_names_input, str):
         route_short_names = [name.strip() for name in route_short_names_input.split(',')]
         print(f"Selected routes: {route_short_names}")
 elif isinstance(route_short_names_input, list):
-    route_short_names = route_short_names_input
-    print(f"Selected routes: {route_short_names}")
+    if 'all' in [name.lower() for name in route_short_names_input]:
+        route_short_names = routes['route_short_name'].dropna().unique().tolist()
+        print(f"Selected all routes: {route_short_names}")
+    else:
+        route_short_names = route_short_names_input
+        print(f"Selected routes: {route_short_names}")
 else:
     print("Error: 'route_short_names_input' must be either 'all', a comma-separated string, or a list of route short names.")
     sys.exit(1)
