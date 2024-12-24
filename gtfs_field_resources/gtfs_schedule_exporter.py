@@ -12,12 +12,12 @@ from openpyxl.styles import Alignment
 # ==============================
 
 # Input file paths for GTFS files (update these paths accordingly)
-base_input_path = r"C:\Path\To\Your\System\GTFS_Data"  # Replace with your file path
-trips_file = os.path.join(base_input_path, "trips.txt")
-stop_times_file = os.path.join(base_input_path, "stop_times.txt")
-routes_file = os.path.join(base_input_path, "routes.txt")
-stops_file = os.path.join(base_input_path, "stops.txt")
-calendar_file = os.path.join(base_input_path, "calendar.txt")
+BASE_INPUT_PATH = r"C:\Path\To\Your\System\GTFS_Data"  # Replace with your file path
+trips_file = os.path.join(BASE_INPUT_PATH, "trips.txt")
+stop_times_file = os.path.join(BASE_INPUT_PATH, "stop_times.txt")
+routes_file = os.path.join(BASE_INPUT_PATH, "routes.txt")
+stops_file = os.path.join(BASE_INPUT_PATH, "stops.txt")
+calendar_file = os.path.join(BASE_INPUT_PATH, "calendar.txt")
 
 # Output directory (update this path accordingly)
 base_output_path = r"C:\Path\To\Your\Output_Folder"  # Replace with your file path
