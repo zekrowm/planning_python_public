@@ -344,11 +344,13 @@ def export_to_excel_multiple_sheets(df_dict, output_file):
                 continue
             df.to_excel(writer, index=False, sheet_name=sheet_name)
 
-            workbook = writer.book
+            # Remove the unused 'workbook' variable
+            # workbook = writer.book
+
             worksheet = writer.sheets[sheet_name]
 
             # Apply alignment to headers and adjust column widths
-            for col_num, col_name in enumerate(df.columns, 1):  # 1-based indexing for openpyxl
+            for col_num, _ in enumerate(df.columns, 1):  # Use '_' since 'col_name' is unused
                 # Get the column letter
                 col_letter = get_column_letter(col_num)
 
