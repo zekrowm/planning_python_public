@@ -490,5 +490,3 @@ for route_short_name in route_short_names:
 
         # Export to Excel with multiple sheets
         export_to_excel_multiple_sheets(df_sheets, output_file)
-
-
