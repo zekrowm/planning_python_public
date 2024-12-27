@@ -1,10 +1,5 @@
 """
 --------------------------------------------------------------------------
-Script Name: Filtered Bus Stops Ridership Analysis
-Author: [Your Name]
-Date: 2024-12-23
-Version: 1.2
-Description:
     This script processes bus stop data by performing a spatial join with census blocks,
     merging with ridership data from an Excel file, and filtering out bus stops that do
     not have corresponding ridership data. The final outputs include updated shapefiles
