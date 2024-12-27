@@ -1,18 +1,21 @@
 #!/usr/bin/env python
 # coding: utf-8
+"""
+This module loads GTFS data, identifies layovers, and detects bus conflicts
+at stops based on time windows. The results are exported to Excel.
+"""
+
+import os
 
 import pandas as pd
-import numpy as np
-from datetime import timedelta
-import os
 
 # ================================
 # CONFIGURATION SECTION
 # ================================
 
 # Input and output folder paths
-base_input_path = r"C:\Path\To\Your\System\GTFS_Data" # Replace with your file path
-base_output_path = r"C:\Path\To\Your\Output_Folder" # Replace with your file path
+base_input_path = r"C:\Path\To\Your\System\GTFS_Data"  # Replace with your file path
+base_output_path = r"C:\Path\To\Your\Output_Folder"    # Replace with your file path
 
 # Input file names
 stop_times_file = "stop_times.txt"
@@ -49,8 +52,10 @@ trips = pd.read_csv(os.path.join(base_input_path, trips_file), dtype=str)
 calendar = pd.read_csv(os.path.join(base_input_path, calendar_file), dtype=str)
 stops = pd.read_csv(os.path.join(base_input_path, stops_file), dtype=str)
 
-# Convert times to proper format
 def time_to_seconds(t):
+    """
+    Convert a time string in HH:MM:SS format to seconds since midnight.
+    """
     h, m, s = map(int, t.split(':'))
     return h * 3600 + m * 60 + s
 
@@ -59,14 +64,18 @@ def time_to_seconds(t):
 # ================================
 
 # Filter calendar for active service_ids on the specified service days
-active_services = calendar[calendar[service_days].apply(lambda x: x == '1').any(axis=1)]['service_id'].unique()
+active_services = calendar[
+    calendar[service_days].apply(lambda x: x == '1').any(axis=1)
+]['service_id'].unique()
+
 trips = trips[trips['service_id'].isin(active_services)]
 
 # Filter stop_times for the trips with active service_ids
 stop_times = stop_times[stop_times['trip_id'].isin(trips['trip_id'])]
 
 # Merge stop_times with trips to get block_id and route_id
-stop_times = stop_times.merge(trips[['trip_id', 'block_id', 'route_id']], on='trip_id', how='left')
+stop_times = stop_times.merge(trips[['trip_id', 'block_id', 'route_id']],
+                              on='trip_id', how='left')
 
 # If not processing all stops, filter stop_times for the specified stop_ids
 if not process_all_stops:
@@ -87,14 +96,15 @@ stop_times['departure_seconds'] = stop_times['departure_seconds'] % 86400
 # Sort stop_times for layover detection
 stop_times.sort_values(['block_id', 'arrival_seconds'], inplace=True)
 
-# Identify layovers at the same stop within the threshold
 stop_times['next_stop_id'] = stop_times.groupby('block_id')['stop_id'].shift(-1)
 stop_times['next_arrival_seconds'] = stop_times.groupby('block_id')['arrival_seconds'].shift(-1)
 stop_times['next_departure_seconds'] = stop_times.groupby('block_id')['departure_seconds'].shift(-1)
 stop_times['layover_duration'] = stop_times['next_arrival_seconds'] - stop_times['departure_seconds']
 
 # Correct negative durations due to overnight trips
-stop_times['layover_duration'] = stop_times['layover_duration'].apply(lambda x: x + 86400 if x < 0 else x)
+stop_times['layover_duration'] = stop_times['layover_duration'].apply(
+    lambda x: x + 86400 if x < 0 else x
+)
 
 # Identify layovers that start at the same stop within the threshold
 stop_times['is_layover'] = (
@@ -108,7 +118,9 @@ layovers = stop_times[stop_times['is_layover']].copy()
 layovers['arrival_seconds'] = layovers['departure_seconds']
 layovers['departure_seconds'] = layovers['next_arrival_seconds']
 layovers['trip_id'] = layovers['trip_id'] + '_layover'
-layovers['route_id'] = layovers['route_id']  # Route remains the same during layover
+
+# Route remains the same during layover
+# (We just keep layovers['route_id'] = layovers['route_id'])
 
 # Combine original stop_times with layover times
 stop_times = pd.concat([stop_times, layovers], ignore_index=True)
@@ -119,18 +131,22 @@ stop_times = pd.concat([stop_times, layovers], ignore_index=True)
 
 print("Detecting conflicts at stops...")
 
-# Function to detect conflicts at a stop
 def detect_conflicts(stop_df):
+    """
+    Given a DataFrame containing 'arrival_seconds', 'departure_seconds', and
+    'block_id' for a single stop, determine if there are conflicts (overlaps).
+    """
     # Sort intervals by arrival time
     intervals = stop_df[['arrival_seconds', 'departure_seconds', 'block_id']].sort_values('arrival_seconds').values
-    conflicts = False
+    conflicts_found = False
     last_departure = -1
-    for arrival, departure, block_id in intervals:
+    for (arrival, departure, blk_id) in intervals:
+        # If the arrival of this bus is before the last bus departed, conflict
         if arrival < last_departure:
-            conflicts = True
+            conflicts_found = True
             break
         last_departure = max(last_departure, departure)
-    return conflicts
+    return conflicts_found
 
 # Get list of stops to process
 if process_all_stops:
@@ -140,85 +156,69 @@ if process_all_stops:
 stops_with_conflicts = []
 
 # Detect conflicts at each stop
-for stop_id in stop_ids_to_process:
-    stop_df = stop_times[stop_times['stop_id'] == stop_id]
-    # Group by block_id and get intervals
+for sid in stop_ids_to_process:
+    stop_df = stop_times[stop_times['stop_id'] == sid]
     intervals = stop_df[['arrival_seconds', 'departure_seconds', 'block_id']]
-    # Check for overlaps
     intervals = intervals.sort_values('arrival_seconds')
     intervals_list = intervals.values.tolist()
     conflicts = False
     active_blocks = []
-    for arrival, departure, block_id in intervals_list:
-        # Remove blocks that have departed
-        active_blocks = [blk for blk in active_blocks if blk[1] > arrival]
+    for (arr, dep, blk_id) in intervals_list:
+        # Remove blocks that have already departed
+        active_blocks = [blk for blk in active_blocks if blk[1] > arr]
         if active_blocks:
             # Conflict detected
             conflicts = True
             break
-        active_blocks.append((block_id, departure))
+        active_blocks.append((blk_id, dep))
     if conflicts:
-        stops_with_conflicts.append(stop_id)
-        print(f"Conflict detected at stop {stop_id}.")
+        stops_with_conflicts.append(sid)
+        print(f"Conflict detected at stop {sid}.")
     else:
-        print(f"No conflict at stop {stop_id}.")
+        print(f"No conflict at stop {sid}.")
 
-# Proceed to detailed processing for stops with conflicts
 print("\nProcessing stops with conflicts...")
 
 # Create DataFrame for each minute of the day
-minutes_in_day = pd.DataFrame({
-    'time_minute': range(0, 1440)
-})
-minutes_in_day['time_str'] = minutes_in_day['time_minute'].apply(lambda x: f"{x // 60:02d}:{x % 60:02d}")
+minutes_in_day = pd.DataFrame({'time_minute': range(0, 1440)})
+minutes_in_day['time_str'] = minutes_in_day['time_minute'].apply(
+    lambda x: f"{x // 60:02d}:{x % 60:02d}"
+)
 
-# Process each stop with conflicts
-for stop_id in stops_with_conflicts:
-    stop_times_stop = stop_times[stop_times['stop_id'] == stop_id]
+for sid in stops_with_conflicts:
+    stop_times_stop = stop_times[stop_times['stop_id'] == sid]
     blocks_at_stop = stop_times_stop['block_id'].unique()
-
-    # Create a list to hold DataFrames for each block
     block_dfs = []
 
-    for block_id in blocks_at_stop:
-        block_stop_times = stop_times_stop[stop_times_stop['block_id'] == block_id]
+    for blk_id in blocks_at_stop:
+        block_stop_times = stop_times_stop[stop_times_stop['block_id'] == blk_id]
 
-        # Initialize DataFrame for the block
         block_df = pd.DataFrame({
             'time_minute': range(0, 1440),
             'time_str': [f"{x // 60:02d}:{x % 60:02d}" for x in range(0, 1440)],
-            block_id: 0,
-            'route_ids': [[] for _ in range(1440)]  # Initialize list of route_ids
+            blk_id: 0,
+            'route_ids': [[] for _ in range(1440)]
         })
 
-        # For each trip (including layovers)
         for _, row in block_stop_times.iterrows():
             start_minute = int(row['arrival_seconds'] // 60)
             end_minute = int(row['departure_seconds'] // 60)
-            # Correct for times over midnight
             if end_minute < start_minute:
                 end_minute += 1440
-            # Mark occupancy and append route_ids
             for minute in range(start_minute, end_minute + 1):
-                idx = minute % 1440  # Wrap around midnight
-                block_df.at[idx, block_id] = 1  # Bus is present during this period
+                idx = minute % 1440
+                block_df.at[idx, blk_id] = 1
                 block_df.at[idx, 'route_ids'].append(row['route_id'])
 
-        # Remove duplicate route_ids in each list
+        # Remove duplicates in each list
         block_df['route_ids'] = block_df['route_ids'].apply(lambda x: sorted(set(x)))
-
-        # Convert route_ids lists to comma-separated strings
         block_df['route_ids'] = block_df['route_ids'].apply(lambda x: ', '.join(x))
 
-        # Rename route_ids column to include block_id
-        block_df.rename(columns={'route_ids': f'route_ids_{block_id}'}, inplace=True)
-
-        # Keep only relevant columns for this block
-        block_df = block_df[['time_minute', 'time_str', block_id, f'route_ids_{block_id}']]
-
+        # Rename columns to keep route info per block
+        block_df.rename(columns={'route_ids': f'route_ids_{blk_id}'}, inplace=True)
+        block_df = block_df[['time_minute', 'time_str', blk_id, f'route_ids_{blk_id}']]
         block_dfs.append(block_df)
 
-    # Merge all block DataFrames on time_minute and time_str
     if block_dfs:
         blocks_occupancy_df = block_dfs[0]
         for df in block_dfs[1:]:
@@ -226,40 +226,35 @@ for stop_id in stops_with_conflicts:
     else:
         blocks_occupancy_df = minutes_in_day.copy()
 
-    # Fill NaN with default values
     blocks_occupancy_df.fillna({'time_minute': 0, 'time_str': '00:00'}, inplace=True)
-    occupancy_columns = [col for col in blocks_occupancy_df.columns if col not in ['time_minute', 'time_str']]
-    block_cols = [col for col in occupancy_columns if not col.startswith('route_ids_')]
-
-    # Calculate total buses present at each minute
+    occupancy_columns = [c for c in blocks_occupancy_df.columns
+                         if c not in ['time_minute', 'time_str']]
+    block_cols = [c for c in occupancy_columns if not c.startswith('route_ids_')]
     blocks_occupancy_df['Total_Buses'] = blocks_occupancy_df[block_cols].sum(axis=1)
 
-    # Check for conflicts (Total_Buses > 1)
     has_conflicts = blocks_occupancy_df['Total_Buses'].gt(1).any()
     if has_conflicts:
         num_conflict_minutes = blocks_occupancy_df['Total_Buses'].gt(1).sum()
-        print(f"Stop {stop_id} has {num_conflict_minutes} minute(s) with conflicts (Total_Buses > 1).")
+        print(f"Stop {sid} has {num_conflict_minutes} minute(s) with conflicts.")
     else:
-        print(f"Stop {stop_id} has no conflicts (after detailed processing).")
+        print(f"Stop {sid} has no conflicts (after detailed processing).")
 
-    # Rearrange columns
     cols = ['time_minute', 'time_str', 'Total_Buses'] + occupancy_columns
     blocks_occupancy_df = blocks_occupancy_df[cols]
 
-    # Export to Excel with each block as a separate sheet
-    output_file = os.path.join(base_output_path, f"stop_{stop_id}_occupancy.xlsx")
+    output_file = os.path.join(base_output_path, f"stop_{sid}_occupancy.xlsx")
     with pd.ExcelWriter(output_file) as writer:
-        # Write total buses sheet
-        blocks_occupancy_df[['time_minute', 'time_str', 'Total_Buses']].to_excel(writer, sheet_name='Total_Buses', index=False)
-        # Write each block's occupancy and route_ids
-        for block_id in blocks_at_stop:
-            occupancy_col = block_id
-            route_ids_col = f'route_ids_{block_id}'
-            df = blocks_occupancy_df[['time_minute', 'time_str', occupancy_col, route_ids_col]]
-            df.rename(columns={occupancy_col: 'Occupancy', route_ids_col: 'Route_IDs'}, inplace=True)
-            df.to_excel(writer, sheet_name=f"Block_{block_id}", index=False)
+        blocks_occupancy_df[['time_minute', 'time_str', 'Total_Buses']].to_excel(
+            writer, sheet_name='Total_Buses', index=False
+        )
+        for blk_id in blocks_at_stop:
+            occupancy_col = blk_id
+            route_ids_col = f'route_ids_{blk_id}'
+            df_blk = blocks_occupancy_df[['time_minute', 'time_str', occupancy_col, route_ids_col]]
+            df_blk.rename(columns={occupancy_col: 'Occupancy', route_ids_col: 'Route_IDs'}, inplace=True)
+            df_blk.to_excel(writer, sheet_name=f"Block_{blk_id}", index=False)
 
-    print(f"Occupancy data for stop {stop_id} has been written to {output_file}.")
+    print(f"Occupancy data for stop {sid} has been written to {output_file}.")
 
 print("\nProcessing completed.")
 
