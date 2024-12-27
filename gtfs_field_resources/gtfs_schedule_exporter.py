@@ -68,7 +68,7 @@ TIME_FORMAT_OPTION = '12'  # Change to '24' for 24-hour format
 MISSING_TIME = "---"
 
 # Maximum column width for Excel output (used to wrap long headers)
-max_column_width = 30  # Adjust as needed
+MAX_COLUMN_WIDTH = 30  # Adjust as needed  (Renamed to comply with Pylint)
 
 # ==============================
 # END OF CONFIGURATION SECTION
@@ -104,7 +104,7 @@ def time_to_minutes(time_str):
         # Allow hours >=24 by not constraining the hour value
         total_minutes = hour * 60 + minute
         return total_minutes
-    except:
+    except Exception:  # Changed bare except to Exception
         return None
 
 def check_schedule_order(df, ordered_stop_names, route_short_name, schedule_type, direction_id):
@@ -123,22 +123,32 @@ def check_schedule_order(df, ordered_stop_names, route_short_name, schedule_type
             if current_time is None:
                 continue
             if last_time is not None and current_time < last_time:
-                print(f"⚠️ Time order violation in Route '{route_short_name}', Schedule '{schedule_type}', Direction '{direction_id}', Trip '{row['Trip Headsign']}': '{stop}' time {time_str} is earlier than previous stop.")
+                print(
+                    f"⚠️ Time order violation in Route '{route_short_name}', "
+                    f"Schedule '{schedule_type}', Direction '{direction_id}', "
+                    f"Trip '{row['Trip Headsign']}': '{stop}' time {time_str} is earlier than previous stop."
+                )
                 violations = True
                 break  # Warn once per trip
+            last_time = current_time
 
     # Column-wise check: Ensure times increase from top to bottom within each stop
     for stop in ordered_stop_names:
         last_time = None
-        for idx, row in df.iterrows():
+        for _idx, row in df.iterrows():  # Renamed idx to _idx to avoid W0612
             time_str = row.get(f"{stop} Schedule", MISSING_TIME)
             current_time = time_to_minutes(time_str)
             if current_time is None:
                 continue
             if last_time is not None and current_time < last_time:
-                print(f"⚠️ Time order violation in Route '{route_short_name}', Schedule '{schedule_type}', Direction '{direction_id}', Stop '{stop}': time {time_str} is earlier than previous trip.")
+                print(
+                    f"⚠️ Time order violation in Route '{route_short_name}', "
+                    f"Schedule '{schedule_type}', Direction '{direction_id}', "
+                    f"Stop '{stop}': time {time_str} is earlier than previous trip."
+                )
                 violations = True
                 break  # Warn once per stop
+            last_time = current_time
 
     if not violations:
         print("✅ Schedule order check passed.")
@@ -178,6 +188,10 @@ def adjust_time(time_str, time_format='24'):
         return None
 
 def get_ordered_stops(direction_id, relevant_trips):
+    """
+    Retrieves and orders the stops for the given direction_id from 'relevant_trips'.
+    Returns a tuple of (ordered_stop_names, unique_stops DataFrame).
+    """
     relevant_trips_direction = relevant_trips[relevant_trips['direction_id'] == direction_id]
 
     if relevant_trips_direction.empty:
@@ -240,11 +254,19 @@ def map_service_id_to_schedule(service_row):
     else:
         return 'Special'  # For other combinations
 
-def process_trips_for_direction(relevant_trips_direction, ordered_stop_names, unique_stops, time_format, route_short_name, schedule_type, direction_id):
+def process_trips_for_direction(
+    relevant_trips_direction,
+    ordered_stop_names,
+    unique_stops,
+    time_format,
+    route_short_name,
+    schedule_type,
+    direction_id
+):
     """
     Processes trips for a specific direction_id and returns a DataFrame without 'Trip ID'.
-    Each stop occurrence is preserved, ensuring that repeated visits to the same stop appear as distinct columns.
-    Sorts trips based on the latest departure time in 24-hour format.
+    Each stop occurrence is preserved, ensuring repeated visits to the same stop appear
+    as distinct columns. Sorts trips based on the latest departure time in 24-hour format.
     Checks for sequential departure times and prints warnings if inconsistencies are found.
     Also performs schedule order checks across rows and columns.
     """
@@ -258,7 +280,9 @@ def process_trips_for_direction(relevant_trips_direction, ordered_stop_names, un
 
     output_data = []
 
-    for trip_id, group in timepoints[timepoints['trip_id'].isin(relevant_trips_direction['trip_id'])].groupby('trip_id'):
+    for trip_id, group in timepoints[
+        timepoints['trip_id'].isin(relevant_trips_direction['trip_id'])
+    ].groupby('trip_id'):
         trip_info = relevant_trips_direction[relevant_trips_direction['trip_id'] == trip_id].iloc[0]
         route_name = routes[routes['route_id'] == trip_info['route_id']]['route_short_name'].values[0]
         trip_headsign = trip_info.get('trip_headsign', '')
@@ -270,13 +294,16 @@ def process_trips_for_direction(relevant_trips_direction, ordered_stop_names, un
         schedule_times = [MISSING_TIME] * len(ordered_stop_ids)
         valid_departure_times_24 = []
 
-        for idx, stop in group.iterrows():
+        for _idx, stop in group.iterrows():  # Rename idx to _idx to avoid W0612
             departure_str = stop['departure_time'].strip()
             time_str_display = adjust_time(departure_str, time_format)
             time_str_24 = adjust_time(departure_str, '24')
 
             if time_str_display is None or time_str_24 is None:
-                print(f"Warning: Invalid time format '{stop['departure_time']}' in trip_id '{trip_id}' at stop_id '{stop['stop_id']}'")
+                print(
+                    f"Warning: Invalid time format '{stop['departure_time']}' "
+                    f"in trip_id '{trip_id}' at stop_id '{stop['stop_id']}'"
+                )
                 continue
 
             seq = stop['stop_sequence']
@@ -288,11 +315,16 @@ def process_trips_for_direction(relevant_trips_direction, ordered_stop_names, un
         if valid_departure_times_24:
             try:
                 # Use pd.to_timedelta which can handle hours >=24
-                departure_timedeltas = [pd.to_timedelta(t + ':00') for t in valid_departure_times_24]
+                departure_timedeltas = [
+                    pd.to_timedelta(t + ':00') for t in valid_departure_times_24
+                ]
                 max_sort_time = max(departure_timedeltas)
-            except Exception as e:
+            except Exception as e:  # broad-exception-caught; optionally refine
                 max_sort_time = pd.to_timedelta('00:00')
-                print(f"Warning: Failed to determine maximum departure time for trip_id '{trip_id}'. Defaulting to '00:00'. Error: {e}")
+                print(
+                    f"Warning: Failed to determine maximum departure time for trip_id '{trip_id}'. "
+                    f"Defaulting to '00:00'. Error: {e}"
+                )
         else:
             # If no valid times, assign a large timedelta to push this trip to the bottom
             max_sort_time = pd.to_timedelta('9999:00:00')
@@ -304,26 +336,32 @@ def process_trips_for_direction(relevant_trips_direction, ordered_stop_names, un
         # Add this trip's data to the output
         output_data.append(row)
 
-        # Check for sequential times within the trip (existing functionality)
+        # Check for sequential times within the trip
         times_in_seconds = []
-        for time_str in valid_departure_times_24:
-            total_minutes = time_to_minutes(time_str)
+        for t_str in valid_departure_times_24:
+            total_minutes = time_to_minutes(t_str)
             if total_minutes is not None:
                 seconds = total_minutes * 60
                 times_in_seconds.append(seconds)
             else:
-                print(f"Warning: Failed to parse time '{time_str}' in trip_id '{trip_id}'.")
+                print(
+                    f"Warning: Failed to parse time '{t_str}' in trip_id '{trip_id}'."
+                )
 
         for i in range(1, len(times_in_seconds)):
             if times_in_seconds[i] < times_in_seconds[i - 1]:
                 print(
-                    f"⚠️ Non-sequential departure times in trip_id '{trip_id}' for Route '{route_short_name}', "
-                    f"Schedule '{schedule_type}', Direction '{direction_id}'. "
+                    f"⚠️ Non-sequential departure times in trip_id '{trip_id}' for "
+                    f"Route '{route_short_name}', Schedule '{schedule_type}', Direction '{direction_id}'. "
                     f"Stop {i + 1} is earlier than Stop {i}."
                 )
                 break  # Warn once per trip
 
-    columns = ['Route Name', 'Direction ID', 'Trip Headsign'] + [f"{sn} Schedule" for sn in ordered_stop_names] + ['sort_time']
+    columns = (
+        ['Route Name', 'Direction ID', 'Trip Headsign']
+        + [f"{sn} Schedule" for sn in ordered_stop_names]
+        + ['sort_time']
+    )
     df = pd.DataFrame(output_data, columns=columns)
     df = df.sort_values(by='sort_time').drop(columns=['sort_time'])
 
@@ -347,13 +385,10 @@ def export_to_excel_multiple_sheets(df_dict, output_file):
                 continue
             df.to_excel(writer, index=False, sheet_name=sheet_name)
 
-            # Remove the unused 'workbook' variable
-            # workbook = writer.book
-
             worksheet = writer.sheets[sheet_name]
 
             # Apply alignment to headers and adjust column widths
-            for col_num, _ in enumerate(df.columns, 1):  # Use '_' since 'col_name' is unused
+            for col_num, _ in enumerate(df.columns, 1):
                 # Get the column letter
                 col_letter = get_column_letter(col_num)
 
@@ -362,19 +397,21 @@ def export_to_excel_multiple_sheets(df_dict, output_file):
                 header_cell.alignment = Alignment(horizontal='left', wrap_text=True)
 
                 # Set alignment to left for all data cells in the column
-                for row_num in range(2, worksheet.max_row + 1):  # Start from row 2 to skip header
+                for row_num in range(2, worksheet.max_row + 1):
                     cell = worksheet[f'{col_letter}{row_num}']
                     cell.alignment = Alignment(horizontal='left')
 
                 # Calculate the maximum width for this column
                 column_cells = worksheet[col_letter]
                 try:
-                    max_length = max(len(str(cell.value)) for cell in column_cells if cell.value is not None)
-                except:
+                    max_length = max(
+                        len(str(cell.value)) for cell in column_cells if cell.value is not None
+                    )
+                except Exception:
                     max_length = 10  # Default width if calculation fails
 
                 # Adjust the column width, limiting it to the maximum column width
-                adjusted_width = min(max_length + 2, max_column_width)
+                adjusted_width = min(max_length + 2, MAX_COLUMN_WIDTH)
                 worksheet.column_dimensions[col_letter].width = adjusted_width
 
     print(f"Data exported to {output_file}")
@@ -421,7 +458,8 @@ elif isinstance(route_short_names_input, list):
         route_short_names = route_short_names_input
         print(f"Selected routes: {route_short_names}")
 else:
-    print("Error: 'route_short_names_input' must be either 'all', a comma-separated string, or a list of route short names.")
+    print("Error: 'route_short_names_input' must be either 'all', a comma-separated string, "
+          "or a list of route short names.")
     sys.exit(1)
 
 # Check for 'timepoint' column and filter timepoints
@@ -438,9 +476,9 @@ schedule_types_set = set()
 
 for _, service_row in calendar.iterrows():
     service_id = service_row['service_id']
-    schedule_type = map_service_id_to_schedule(service_row)
-    service_id_schedule_map[service_id] = schedule_type
-    schedule_types_set.add(schedule_type)
+    stype = map_service_id_to_schedule(service_row)
+    service_id_schedule_map[service_id] = stype
+    schedule_types_set.add(stype)
 
 print(f"Identified schedule types: {schedule_types_set}")
 
@@ -459,7 +497,9 @@ for route_short_name in route_short_names:
         print(f"  Processing schedule type '{schedule_type}'...")
 
         # Get service_ids for this schedule_type
-        relevant_service_ids = [sid for sid, stype in service_id_schedule_map.items() if stype == schedule_type]
+        relevant_service_ids = [
+            sid for sid, stype_ in service_id_schedule_map.items() if stype_ == schedule_type
+        ]
 
         if not relevant_service_ids:
             print(f"    No services found for schedule type '{schedule_type}'.")
@@ -472,7 +512,8 @@ for route_short_name in route_short_names:
         ]
 
         if relevant_trips.empty:
-            print(f"    No trips found for route '{route_short_name}' with schedule type '{schedule_type}'.")
+            print(f"    No trips found for route '{route_short_name}' "
+                  f"with schedule type '{schedule_type}'.")
             continue
 
         # Get unique direction_ids within these trips
@@ -510,11 +551,12 @@ for route_short_name in route_short_names:
                 continue
 
             # Add DataFrame to the sheets dictionary with sheet name as 'Direction_{direction_id}'
-            sheet_name = f"Direction_{direction_id}"
-            df_sheets[sheet_name] = df
+            sheet_name_var = f"Direction_{direction_id}"  # Renamed to avoid "constant" naming error
+            df_sheets[sheet_name_var] = df
 
         if not df_sheets:
-            print(f"    No data to export for route '{route_short_name}' with schedule '{schedule_type}'.")
+            print(f"    No data to export for route '{route_short_name}' "
+                  f"with schedule '{schedule_type}'.")
             continue
 
         # Sanitize schedule_type for filename
