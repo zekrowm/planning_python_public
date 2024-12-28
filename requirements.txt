@@ -5,3 +5,4 @@ rapidfuzz==3.11.0
 matplotlib==3.7.1
 networkx==3.1
 shapely==2.0.1
+pylint==2.15.10
