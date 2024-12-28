@@ -1,7 +1,7 @@
 pandas==1.5.3
 geopandas==0.13.0
 openpyxl==3.1.2
-rapidfuzz==2.14.1
+rapidfuzz==3.11.0
 matplotlib==3.7.1
 networkx==3.1
 shapely==2.0.1
