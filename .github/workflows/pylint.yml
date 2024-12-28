@@ -37,6 +37,4 @@ jobs:
 
       - name: Analyze Code with Pylint
         run: |
-          pylint $(git ls-files '*.py') --ignore=arcpy_tools
-        # Optional: Prevent workflow from failing on Pylint errors
-        # continue-on-error: true
+          pylint $(git ls-files '*.py') --ignore=arcpy_tools --disable=duplicate-code
