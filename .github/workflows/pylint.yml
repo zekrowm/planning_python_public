@@ -8,6 +8,7 @@ on:
   # Schedule the workflow to run at midnight every Sunday (UTC)
   schedule:
     - cron: '0 0 * * SUN'  # Runs at 00:00 UTC on Sundays
+  workflow_dispatch:        # Allows manual triggering
 
 # Define the jobs that make up the workflow
 jobs:
