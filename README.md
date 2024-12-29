@@ -15,10 +15,15 @@ The repository is organized for ease of use, with:
 
 transit_planning_with_python/
 ├── README.md
+
 ├── LICENSE
+
 ├── .github/
+
 │   └── workflows/
+
 │       └── pylint.yml
+
 ├── arcpy_tools/
 │   └── bus_stops_ridership_joiner.py
 ├── gtfs_data_analysis/
