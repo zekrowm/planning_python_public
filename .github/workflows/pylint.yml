@@ -37,5 +37,21 @@ jobs:
 
       - name: Analyze Code with Pylint
         run: |
-          pylint $(git ls-files '*.py') --ignore=arcpy_tools --disable=duplicate-code
+          echo "Starting Pylint analysis..."
+          # Find all Python files, excluding the 'arcpy_tools' directory
+          FILES=$(git ls-files '*.py' | grep -v '^arcpy_tools/')
+          
+          # Check if there are Python files to lint
+          if [ -z "$FILES" ]; then
+            echo "No Python files found to lint."
+            exit 0
+          fi
+          
+          # Loop through each Python file and run Pylint individually
+          for file in $FILES; do
+            echo "------------------------------"
+            echo "Pylint analysis for: $file"
+            pylint "$file" --disable=duplicate-code
+            echo "------------------------------"
+          done
         continue-on-error: true  # Allows the workflow to continue even if Pylint fails
