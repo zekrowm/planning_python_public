@@ -1,37 +1,49 @@
 """
 --------------------------------------------------------------------------
-    This script processes bus stop data by performing a spatial join with census blocks,
-    merging with ridership data from an Excel file, and filtering out bus stops that do
-    not have corresponding ridership data. The final outputs include updated shapefiles
-    with ridership information and aggregated data by census block.
+    This script processes bus stop data by performing a spatial join
+    with census blocks, merging with ridership data from an Excel file,
+    and filtering out bus stops that do not have corresponding ridership
+    data. The final outputs include updated shapefiles with ridership
+    information and aggregated data by census block.
 --------------------------------------------------------------------------
 """
 
-import arcpy
+import sys
 import os
 import csv
+
+import arcpy
 import pandas as pd
 
 # --------------------------------------------------------------------------
 # User-defined variables
 # --------------------------------------------------------------------------
-census_blocks = r"G:\projects\dot\zkrohmal\ridership_by_stop_for_dwayne\data\tl_2024_51_tabblock20\tl_2024_51_tabblock20.shp"
+CENSUS_BLOCKS = (
+    r"G:\projects\dot\zkrohmal\ridership_by_stop_for_dwayne\data\tl_2024_51_tabblock20"
+    r"\tl_2024_51_tabblock20.shp"
+)
 # This can be either a .shp or a .txt (GTFS stops.txt)
-bus_stops_input = r"G:\projects\dot\zkrohmal\ridership_by_stop_for_dwayne\data\stopsByLine_asofSept2024\stopsByLine_asofSept2024.shp"
-excel_file = r"G:\projects\dot\zkrohmal\ridership_by_stop_for_dwayne\data\ridership_by_stop_2024_12_23\STOP_USAGE_(BY_STOP_ID)_2024_12_23.xlsx"
+BUS_STOPS_INPUT = (
+    r"G:\projects\dot\zkrohmal\ridership_by_stop_for_dwayne\data"
+    r"\stopsByLine_asofSept2024\stopsByLine_asofSept2024.shp"
+)
+EXCEL_FILE = (
+    r"G:\projects\dot\zkrohmal\ridership_by_stop_for_dwayne\data"
+    r"\ridership_by_stop_2024_12_23\STOP_USAGE_(BY_STOP_ID)_2024_12_23.xlsx"
+)
 
-output_folder = r"G:\projects\dot\zkrohmal\ridership_by_stop_for_dwayne\output"
-if not os.path.exists(output_folder):
-    os.makedirs(output_folder)
+OUTPUT_FOLDER = r"G:\projects\dot\zkrohmal\ridership_by_stop_for_dwayne\output"
+if not os.path.exists(OUTPUT_FOLDER):
+    os.makedirs(OUTPUT_FOLDER)
 
 # Intermediate and final outputs
 # If using GTFS, we will create a feature class from the stops.txt.
 # Otherwise, if using a shapefile, we use it directly.
-gtfs_stops_fc = os.path.join(output_folder, "bus_stops_generated.shp")
-joined_fc = os.path.join(output_folder, "BusStops_JoinedBlocks.shp")
-matched_joined_fc = os.path.join(output_folder, "BusStops_Matched_JoinedBlocks.shp")
-output_csv = os.path.join(output_folder, "bus_stops_with_census_blocks.csv")
-blocks_with_ridership_shp = os.path.join(output_folder, "census_blocks_with_ridership.shp")
+GTFS_STOPS_FC = os.path.join(OUTPUT_FOLDER, "bus_stops_generated.shp")
+JOINED_FC = os.path.join(OUTPUT_FOLDER, "BusStops_JoinedBlocks.shp")
+MATCHED_JOINED_FC = os.path.join(OUTPUT_FOLDER, "BusStops_Matched_JoinedBlocks.shp")
+OUTPUT_CSV = os.path.join(OUTPUT_FOLDER, "bus_stops_with_census_blocks.csv")
+BLOCKS_WITH_RIDERSHIP_SHP = os.path.join(OUTPUT_FOLDER, "census_blocks_with_ridership.shp")
 
 # Field configuration:
 # For GTFS input: fields are assumed to be "stop_code", "stop_id", "stop_name", "stop_lat", "stop_lon"
@@ -40,49 +52,38 @@ blocks_with_ridership_shp = os.path.join(output_folder, "census_blocks_with_ride
 
 # For ridership data, Excel contains STOP_ID, STOP_NAME, XBOARDINGS, XALIGHTINGS.
 # The final output expects a consistent set of fields. We'll standardize to "stop_code" for GTFS
-# and "StopId" for shapefile. Ultimately, we need a common join key. 
-# For this example, let's assume:
-# - GTFS: We'll join on stop_code
-# - Shapefile: We'll join on StopId
-#
-# We'll unify this by internally standardizing to "stop_code" for GTFS and "StopId" for shapefile.
-# The Excel uses STOP_ID, so we'll map accordingly.
+# and "StopId" for shapefile. Ultimately, we need a common join key.
 
 # Decide which approach to take based on file type
-is_gtfs_input = bus_stops_input.lower().endswith(".txt")
+IS_GTFS_INPUT = BUS_STOPS_INPUT.lower().endswith(".txt")
 
 # Overwrite outputs
 arcpy.env.overwriteOutput = True
 
-# TODO: Make unique Census feature ID into a constant - GEOID, GEOIDFQ, GEOID20, GEOIDFQ20 are common
+# FIXME: Make unique Census feature ID into a constant - e.g., GEOID20, GEOIDFQ20, etc.
 
 # --------------------------------------------------------------------------
 # Step 1: Create or identify the bus stops feature class
 # --------------------------------------------------------------------------
-if is_gtfs_input:
+if IS_GTFS_INPUT:
     # We have a GTFS stops.txt file. Convert it to a point feature class.
     arcpy.management.XYTableToPoint(
-        in_table=bus_stops_input,
-        out_feature_class=gtfs_stops_fc,
+        in_table=BUS_STOPS_INPUT,
+        out_feature_class=GTFS_STOPS_FC,
         x_field="stop_lon",
         y_field="stop_lat",
         coordinate_system=arcpy.SpatialReference(4326)  # WGS84
     )
-    print("GTFS stops feature class created at:\n{}".format(gtfs_stops_fc))
-    bus_stops_fc = gtfs_stops_fc
+    print(f"GTFS stops feature class created at:\n{GTFS_STOPS_FC}")
+    bus_stops_fc = GTFS_STOPS_FC
 
     # We'll export fields from this FC and also rename fields for consistency.
-    # Fields to export to CSV after join:
-    # We know GTFS stops have: stop_code, stop_id, stop_name, and after spatial join: GEOID20, GEOIDFQ20
     fields_to_export = ["stop_code", "stop_id", "stop_name", "GEOID20", "GEOIDFQ20"]
-
 else:
     # We have a shapefile of bus stops directly
-    bus_stops_fc = bus_stops_input
-    print("Using existing bus stops shapefile:\n{}".format(bus_stops_fc))
+    bus_stops_fc = BUS_STOPS_INPUT
+    print(f"Using existing bus stops shapefile:\n{bus_stops_fc}")
 
-    # Fields to export to CSV after join for shapefile scenario:
-    # Assuming fields: StopId, StopNum, and after join: GEOID20, GEOIDFQ20
     fields_to_export = ["StopId", "StopNum", "GEOID20", "GEOIDFQ20"]
 
 # --------------------------------------------------------------------------
@@ -90,130 +91,108 @@ else:
 # --------------------------------------------------------------------------
 arcpy.SpatialJoin_analysis(
     target_features=bus_stops_fc,
-    join_features=census_blocks,
-    out_feature_class=joined_fc,
+    join_features=CENSUS_BLOCKS,
+    out_feature_class=JOINED_FC,
     join_operation="JOIN_ONE_TO_ONE",
     join_type="KEEP_ALL",
     match_option="INTERSECT"
 )
-print("Spatial join completed. Joined feature class created at:\n{}".format(joined_fc))
+print(f"Spatial join completed. Joined feature class created at:\n{JOINED_FC}")
 
 # --------------------------------------------------------------------------
 # Step 3: Export joined data to CSV
 # --------------------------------------------------------------------------
-with arcpy.da.SearchCursor(joined_fc, fields_to_export) as cursor, open(output_csv, 'w', newline='', encoding='utf-8') as csvfile:
+with arcpy.da.SearchCursor(JOINED_FC, fields_to_export) as cursor, \
+        open(OUTPUT_CSV, 'w', newline='', encoding='utf-8') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(fields_to_export)
     for row in cursor:
         writer.writerow(row)
 
-print("CSV export completed. CSV file created at:\n{}".format(output_csv))
+print(f"CSV export completed. CSV file created at:\n{OUTPUT_CSV}")
 
 # --------------------------------------------------------------------------
 # Step 4: Read ridership data from Excel and merge
 # --------------------------------------------------------------------------
-df_excel = pd.read_excel(excel_file)
-
-# Recalculate TOTAL
+df_excel = pd.read_excel(EXCEL_FILE)
 df_excel['TOTAL'] = df_excel['XBOARDINGS'] + df_excel['XALIGHTINGS']
 
-# Read the joined CSV
-df_csv = pd.read_csv(output_csv)
+df_csv = pd.read_csv(OUTPUT_CSV)
 
-# We need to merge these dataframes. The Excel uses STOP_ID as the key.
-# For GTFS scenario: we have stop_code and stop_id in the CSV.
-# For shapefile scenario: we have StopId in the CSV.
-#
-# We'll handle each scenario separately:
-
-if is_gtfs_input:
-    # GTFS scenario: We'll join on stop_code <-> STOP_ID (since Excel STOP_ID matches GTFS stop_code typically)
+if IS_GTFS_INPUT:
     df_excel['STOP_ID'] = df_excel['STOP_ID'].astype(str)
     df_csv['stop_code'] = df_csv['stop_code'].astype(str)
-    df_joined = pd.merge(df_excel, df_csv, left_on='STOP_ID', right_on='stop_code', how='inner')
+    df_joined = pd.merge(df_excel, df_csv, left_on='STOP_ID', right_on='stop_code',
+                         how='inner')
 else:
-    # Shapefile scenario: We'll join on StopId <-> STOP_ID
     df_excel['STOP_ID'] = df_excel['STOP_ID'].astype(str)
     df_csv['StopId'] = df_csv['StopId'].astype(str)
-    df_joined = pd.merge(df_excel, df_csv, left_on='STOP_ID', right_on='StopId', how='inner')
+    df_joined = pd.merge(df_excel, df_csv, left_on='STOP_ID', right_on='StopId',
+                         how='inner')
 
-print("Data merged successfully. Number of matched bus stops: {}".format(len(df_joined)))
+print(f"Data merged successfully. Number of matched bus stops: {len(df_joined)}")
 
 # --------------------------------------------------------------------------
-# Step 4a: Filter joined_fc to include only matched bus stops
+# Step 4a: Filter JOINED_FC to include only matched bus stops
 # --------------------------------------------------------------------------
-# Define the key field based on input type
-key_field = 'stop_code' if is_gtfs_input else 'StopId'
-
-# Extract unique keys from the joined dataframe
+key_field = 'stop_code' if IS_GTFS_INPUT else 'StopId'
 matched_keys = df_joined[key_field].dropna().unique().tolist()
 
 if matched_keys:
-    # Determine the field type
-    fields = arcpy.ListFields(joined_fc, key_field)
+    fields = arcpy.ListFields(JOINED_FC, key_field)
     if not fields:
-        print(f"Error: Field '{key_field}' not found in '{joined_fc}'. Exiting script.")
-        exit()
-    field_type = fields[0].type  # e.g., 'String', 'Integer', etc.
+        print(f"Error: Field '{key_field}' not found in '{JOINED_FC}'. Exiting script.")
+        sys.exit()
 
-    # Prepare the SQL where clause based on field type
-    field_delimited = arcpy.AddFieldDelimiters(joined_fc, key_field)
+    field_type = fields[0].type  # e.g., 'String', 'Integer', etc.
+    field_delimited = arcpy.AddFieldDelimiters(JOINED_FC, key_field)
 
     if field_type in ['String', 'Guid', 'Date']:
-        # String-based field types require values to be quoted
-        formatted_keys = ["'{}'".format(k.replace("'", "''")) for k in matched_keys]
+        formatted_keys = [f"'{k.replace(\"'\", \"''\")}'" for k in matched_keys]
     elif field_type in ['Integer', 'SmallInteger', 'Double', 'Single', 'OID']:
-        # Numeric field types do not require quotes
         formatted_keys = [str(k) for k in matched_keys]
     else:
         print(f"Unsupported field type '{field_type}' for field '{key_field}'. Exiting script.")
-        exit()
+        sys.exit()
 
-    # Due to potential large number of keys, split into manageable chunks
-    chunk_size = 999  # Adjust based on database limitations
+    CHUNK_SIZE = 999
     where_clauses = []
-    for i in range(0, len(formatted_keys), chunk_size):
-        chunk = formatted_keys[i:i + chunk_size]
-        clause = "{} IN ({})".format(field_delimited, ", ".join(chunk))
+    for i in range(0, len(formatted_keys), CHUNK_SIZE):
+        chunk = formatted_keys[i:i + CHUNK_SIZE]
+        clause = f"{field_delimited} IN ({', '.join(chunk)})"
         where_clauses.append(clause)
-    # Combine clauses with OR
+
     full_where_clause = " OR ".join(where_clauses)
+    print(f"Constructed WHERE clause for filtering: {full_where_clause[:200]}...")
 
-    print(f"Constructed WHERE clause for filtering: {full_where_clause[:200]}...")  # Print a snippet for verification
+    arcpy.MakeFeatureLayer_management(JOINED_FC, "joined_lyr")
 
-    # Create a feature layer
-    arcpy.MakeFeatureLayer_management(joined_fc, "joined_lyr")
-
-    # Select features that match the where clause
     try:
-        arcpy.SelectLayerByAttribute_management("joined_lyr", "NEW_SELECTION", full_where_clause)
+        arcpy.SelectLayerByAttribute_management("joined_lyr", "NEW_SELECTION",
+                                                full_where_clause)
     except arcpy.ExecuteError:
         print("Failed to execute SelectLayerByAttribute. Please check the WHERE clause syntax.")
         print(f"WHERE clause attempted: {full_where_clause}")
         raise
 
-    # Check if any features were selected
     selected_count = int(arcpy.GetCount_management("joined_lyr").getOutput(0))
     if selected_count == 0:
         print("No features matched the WHERE clause. Exiting script.")
-        exit()
+        sys.exit()
     else:
         print(f"Number of features selected: {selected_count}")
 
-    # Export the selected features to a new shapefile
-    arcpy.CopyFeatures_management("joined_lyr", matched_joined_fc)
-    print("Filtered joined feature class with matched bus stops created at:\n{}".format(matched_joined_fc))
+    arcpy.CopyFeatures_management("joined_lyr", MATCHED_JOINED_FC)
+    print(f"Filtered joined feature class with matched bus stops created at:\n{MATCHED_JOINED_FC}")
 
-    # Update joined_fc to point to the filtered feature class
-    joined_fc = matched_joined_fc
+    joined_fc = MATCHED_JOINED_FC
 else:
     print("No matched bus stops found in Excel data. Exiting script.")
-    exit()
+    sys.exit()
 
 # --------------------------------------------------------------------------
 # Step 5: Update the Bus Stops Shapefile with Ridership Data
 # --------------------------------------------------------------------------
-# Add fields for ridership: XBOARD, XALIGHT, XTOTAL
 ridership_fields = [
     ("XBOARD", "DOUBLE"),
     ("XALIGHT", "DOUBLE"),
@@ -227,7 +206,6 @@ for f_name, f_type in ridership_fields:
 
 print("Ridership fields added (if not existing).")
 
-# Create a dictionary of keys to ridership
 stop_ridership_dict = {}
 for idx, row in df_joined.iterrows():
     code = row[key_field] if not pd.isna(row[key_field]) else None
@@ -247,13 +225,12 @@ with arcpy.da.UpdateCursor(joined_fc, [key_field, "XBOARD", "XALIGHT", "XTOTAL"]
             r[3] = stop_ridership_dict[code_val]['XTOTAL']
             cursor.updateRow(r)
         else:
-            # This should not occur as we've filtered matched features
             r[1] = 0
             r[2] = 0
             r[3] = 0
             cursor.updateRow(r)
 
-print("Bus stops shapefile updated with ridership data at:\n{}".format(joined_fc))
+print(f"Bus stops shapefile updated with ridership data at:\n{joined_fc}")
 
 # --------------------------------------------------------------------------
 # Step 6: Aggregate ridership by GEOID20
@@ -263,13 +240,12 @@ df_agg = df_joined.groupby('GEOID20', as_index=False).agg({
     'XALIGHTINGS': 'sum',
     'TOTAL': 'sum'
 })
-
 print("Ridership data aggregated by GEOID20.")
 
 # --------------------------------------------------------------------------
 # Step 7: Create a new Census Blocks Shapefile with aggregated ridership
 # --------------------------------------------------------------------------
-arcpy.management.CopyFeatures(census_blocks, blocks_with_ridership_shp)
+arcpy.management.CopyFeatures(CENSUS_BLOCKS, BLOCKS_WITH_RIDERSHIP_SHP)
 
 agg_fields = [
     ("XBOARD_SUM", "DOUBLE"),
@@ -277,10 +253,10 @@ agg_fields = [
     ("TOTAL_SUM", "DOUBLE")
 ]
 
-existing_fields_blocks = [f.name for f in arcpy.ListFields(blocks_with_ridership_shp)]
+existing_fields_blocks = [f.name for f in arcpy.ListFields(BLOCKS_WITH_RIDERSHIP_SHP)]
 for f_name, f_type in agg_fields:
     if f_name not in existing_fields_blocks:
-        arcpy.management.AddField(blocks_with_ridership_shp, f_name, f_type)
+        arcpy.management.AddField(BLOCKS_WITH_RIDERSHIP_SHP, f_name, f_type)
 
 print("Aggregation fields added to census blocks shapefile (if not existing).")
 
@@ -293,7 +269,10 @@ for idx, row in df_agg.iterrows():
         'TOTAL_SUM': row['TOTAL']
     }
 
-with arcpy.da.UpdateCursor(blocks_with_ridership_shp, ["GEOID20", "XBOARD_SUM", "XALITE_SUM", "TOTAL_SUM"]) as cursor:
+with arcpy.da.UpdateCursor(
+    BLOCKS_WITH_RIDERSHIP_SHP,
+    ["GEOID20", "XBOARD_SUM", "XALITE_SUM", "TOTAL_SUM"]
+) as cursor:
     for r in cursor:
         geoid = r[0]
         if geoid in agg_dict:
@@ -307,5 +286,8 @@ with arcpy.da.UpdateCursor(blocks_with_ridership_shp, ["GEOID20", "XBOARD_SUM", 
             r[3] = 0
             cursor.updateRow(r)
 
-print("Census blocks shapefile updated with aggregated ridership data at:\n{}".format(blocks_with_ridership_shp))
+print(
+    "Census blocks shapefile updated with aggregated ridership data at:\n"
+    f"{BLOCKS_WITH_RIDERSHIP_SHP}"
+)
 print("Process complete.")
