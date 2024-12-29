@@ -46,7 +46,7 @@ The repository is organized for ease of use, with:
 
 ## 🛠️ Requirements
 - Python 3.7+
-- Common libraries like pandas, geopandas, partridge, gtfs-kit, and others listed in requirements.txt.
+- Common libraries like pandas, geopandas, rapidfuzz, networkx, and others listed in requirements.txt.
 
 ## 🧑‍💻 How to Use
 
