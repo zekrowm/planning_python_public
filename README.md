@@ -45,10 +45,77 @@ The repository is organized for ease of use, with:
 - ***Standard data formats:*** Most scripts are designed to work with commonly used data types like GTFS files and shapefiles. Specific requirements are outlined in the script comments.
 
 ## 🛠️ Requirements
+
 - Python 3.7+
 - Common libraries like pandas, geopandas, rapidfuzz, networkx, and others listed in requirements.txt.
 
 ## 🧑‍💻 How to Use
+
+The **transit_planning_with_python** tools are designed to work on most systems with Python installed. However, if you're using a work computer configured with ArcPro, there are additional steps required due to restrictions on installing libraries like `geopandas`. Alternately, if you are using a home computer without ArcPro, you will not have access to the arcpy library.
+
+---
+
+### Option A: Setting Up Python on a Home Computer (no arcpy)
+
+1. **Download and Install Python:**
+   - Visit the [official Python website](https://www.python.org/downloads/) and download Python 3.7+.
+   - During installation, ensure you check the option to **"Add Python to PATH"**.
+
+2. **Install Jupyter Notebook and Required Libraries:**
+   - Run the following command in your Command Prompt:
+     ```bash
+     pip install jupyterlab pandas geopandas rapidfuzz matplotlib networkx
+     ```
+
+3. **Launch Jupyter Notebook:**
+   - After installation, you can find "Jupyter Notebook" like any other program on your computer. Clicking it will open your default browser with the notebook interface.
+   - Alternately, you can run this command in the Command Prompt to launch Jupyter Notebook:
+     ```bash
+     jupyter notebook
+     ```
+
+4. **Download Desired Scripts:**
+   - Navigate to scripts that are useful to you and your agency. Then copy and paste their contents into your active Jupyter Notebook or download them as .py files. You do not need a        GitHub account to do this.
+   - Alternately, you can clone or download the whole repository from GitHub.
+ 
+5. **Run the Script:**
+   - Follow the instructions provided in the comments of the script(s).
+   - At a minimum, you will need to update the folder and file paths to point to your data and desired location for any output.
+   - Run the script, follow any printed instructions to resolve issues, and check the output for accuracy.
+
+---
+
+### Option B: Using Python on a Work Computer with ArcPro (no geopandas)
+
+1. **Launch Jupyter Notebook:**
+   - You can launch ArcPro and then open, create, or save a Notebook within that program.
+   - After installation, you can find "Jupyter Notebook" like any other program on your computer. Clicking it will open your default browser with the notebook interface.
+   - Alternately, you can run this command in the Command Prompt to launch Jupyter Notebook:
+     ```bash
+     jupyter notebook
+     ```
+
+2. **Download Desired Scripts:**
+   - Navigate to scripts that are useful to you and your agency. Then copy and paste their contents into your active Notebook or download them as .py files.
+   - Alternately, you can clone or download the whole repository from GitHub.
+ 
+3. **Run the Script:**
+   - Follow the instructions provided in the comments of the script(s).
+   - At a minimum, you will need to update the folder and file paths to point to your data and desired location for any output.
+   - Run the script, follow any printed instructions to resolve issues, and check the output for accuracy.
+
+---
+
+### What is Jupyter Notebook?
+
+Jupyter Notebook is a powerful tool for running Python scripts in an interactive environment that opens in your web browser. It allows you to write, test, and visualize Python code in a more user-friendly way.
+
+---
+
+### Tips for Success
+
+- **File Paths:** Ensure all file paths are updated in the scripts to match your local system.
+- **Permissions:** If IT restrictions block library installations on your work computer, setting up Python on a home computer is recommended.
 
 ## 🤝 Contributing
 
@@ -56,4 +123,4 @@ We welcome your contributions! Feel free to open an issue or submit a pull reque
 
 ## 📄 License
 
-We hope these tools simplify your transit planning workflows! If you encounter issues or have questions, feel free to open an issue or contact us. 🚍
+We hope these tools speed up and simplify your transit planning workflows! If you encounter issues or have questions, feel free to open an issue or contact us. 🚍
