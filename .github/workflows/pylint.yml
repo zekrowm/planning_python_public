@@ -35,19 +35,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Analyze Code with Pylint
+      - name: List Python Files for Pylint
         run: |
-          echo "Starting Pylint analysis..."
+          echo "Detecting Python files for Pylint analysis..."
           # Find all Python files, excluding the 'arcpy_tools' directory
           FILES=$(git ls-files '*.py' | grep -v '^arcpy_tools/')
           
-          # Check if there are Python files to lint
-          if [ -z "$FILES" ]; then
-            echo "No Python files found to lint."
-            exit 0
-          fi
+          # Alternatively, use find to include all Python files
+          # FILES=$(find . -type f -name "*.py" ! -path "./arcpy_tools/*")
           
-          # Loop through each Python file and run Pylint individually
+          echo "Python files detected:"
+          echo "$FILES"
+          
+          echo "Total Python files to analyze: $(echo "$FILES" | wc -l)"
+          
+          # Export FILES variable for the next step
+          echo "FILES<<EOF" >> $GITHUB_ENV
+          echo "$FILES" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Analyze Code with Pylint
+        run: |
+          echo "Starting Pylint analysis..."
+          
+          # Access the FILES variable from environment
           for file in $FILES; do
             echo "------------------------------"
             echo "Pylint analysis for: $file"
