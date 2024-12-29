@@ -8,6 +8,11 @@ Welcome to the transit_planning_with_python repository! This collection of off-t
 
 📂 Repository Structure
 
+The repository is organized for ease of use, with:
+
+   - Standalone scripts: Each tool is fully documented with comments explaining field name assumptions, file formats, and usage instructions.
+   - Standard data formats: Most scripts are designed to work with commonly used data types like GTFS files and shapefiles. Specific requirements are outlined in the script comments.
+
 🛠️ Requirements
 
 🧑‍💻 How to Use
