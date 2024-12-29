@@ -1,4 +1,4 @@
-# transit_planning_with_python
+# Transit Planning With Python
 
 Transit Planning Tools for Medium-Sized Agencies
 
