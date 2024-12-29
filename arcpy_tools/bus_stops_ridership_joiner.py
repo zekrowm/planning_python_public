@@ -60,7 +60,7 @@ IS_GTFS_INPUT = BUS_STOPS_INPUT.lower().endswith(".txt")
 # Overwrite outputs
 arcpy.env.overwriteOutput = True
 
-# FIXME: Make unique Census feature ID into a constant - e.g., GEOID20, GEOIDFQ20, etc.
+# FIXME: Make unique Census feature ID into a constant - GEOID, GEOIDFQ, GEOID20, GEOIDFQ20 are common
 
 # --------------------------------------------------------------------------
 # Step 1: Create or identify the bus stops feature class
@@ -74,7 +74,7 @@ if IS_GTFS_INPUT:
         y_field="stop_lat",
         coordinate_system=arcpy.SpatialReference(4326)  # WGS84
     )
-    print(f"GTFS stops feature class created at:\n{GTFS_STOPS_FC}")
+    print("GTFS stops feature class created at:\n{}".format(GTFS_STOPS_FC))
     bus_stops_fc = GTFS_STOPS_FC
 
     # We'll export fields from this FC and also rename fields for consistency.
@@ -82,7 +82,7 @@ if IS_GTFS_INPUT:
 else:
     # We have a shapefile of bus stops directly
     bus_stops_fc = BUS_STOPS_INPUT
-    print(f"Using existing bus stops shapefile:\n{bus_stops_fc}")
+    print("Using existing bus stops shapefile:\n{}".format(bus_stops_fc))
 
     fields_to_export = ["StopId", "StopNum", "GEOID20", "GEOIDFQ20"]
 
@@ -97,7 +97,7 @@ arcpy.SpatialJoin_analysis(
     join_type="KEEP_ALL",
     match_option="INTERSECT"
 )
-print(f"Spatial join completed. Joined feature class created at:\n{JOINED_FC}")
+print("Spatial join completed. Joined feature class created at:\n{}".format(JOINED_FC))
 
 # --------------------------------------------------------------------------
 # Step 3: Export joined data to CSV
@@ -109,7 +109,7 @@ with arcpy.da.SearchCursor(JOINED_FC, fields_to_export) as cursor, \
     for row in cursor:
         writer.writerow(row)
 
-print(f"CSV export completed. CSV file created at:\n{OUTPUT_CSV}")
+print("CSV export completed. CSV file created at:\n{}".format(OUTPUT_CSV))
 
 # --------------------------------------------------------------------------
 # Step 4: Read ridership data from Excel and merge
@@ -130,7 +130,7 @@ else:
     df_joined = pd.merge(df_excel, df_csv, left_on='STOP_ID', right_on='StopId',
                          how='inner')
 
-print(f"Data merged successfully. Number of matched bus stops: {len(df_joined)}")
+print("Data merged successfully. Number of matched bus stops: {}".format(len(df_joined)))
 
 # --------------------------------------------------------------------------
 # Step 4a: Filter JOINED_FC to include only matched bus stops
@@ -141,29 +141,29 @@ matched_keys = df_joined[key_field].dropna().unique().tolist()
 if matched_keys:
     fields = arcpy.ListFields(JOINED_FC, key_field)
     if not fields:
-        print(f"Error: Field '{key_field}' not found in '{JOINED_FC}'. Exiting script.")
+        print("Error: Field '{}' not found in '{}'. Exiting script.".format(key_field, JOINED_FC))
         sys.exit()
 
     field_type = fields[0].type  # e.g., 'String', 'Integer', etc.
     field_delimited = arcpy.AddFieldDelimiters(JOINED_FC, key_field)
 
     if field_type in ['String', 'Guid', 'Date']:
-        formatted_keys = [f"'{k.replace(\"'\", \"''\")}'" for k in matched_keys]
+        formatted_keys = ["'{}'".format(k.replace("'", "''")) for k in matched_keys]
     elif field_type in ['Integer', 'SmallInteger', 'Double', 'Single', 'OID']:
         formatted_keys = [str(k) for k in matched_keys]
     else:
-        print(f"Unsupported field type '{field_type}' for field '{key_field}'. Exiting script.")
+        print("Unsupported field type '{}' for field '{}'. Exiting script.".format(field_type, key_field))
         sys.exit()
 
     CHUNK_SIZE = 999
     where_clauses = []
     for i in range(0, len(formatted_keys), CHUNK_SIZE):
         chunk = formatted_keys[i:i + CHUNK_SIZE]
-        clause = f"{field_delimited} IN ({', '.join(chunk)})"
+        clause = "{} IN ({})".format(field_delimited, ", ".join(chunk))
         where_clauses.append(clause)
 
     full_where_clause = " OR ".join(where_clauses)
-    print(f"Constructed WHERE clause for filtering: {full_where_clause[:200]}...")
+    print("Constructed WHERE clause for filtering: {}...".format(full_where_clause[:200]))
 
     arcpy.MakeFeatureLayer_management(JOINED_FC, "joined_lyr")
 
@@ -172,7 +172,7 @@ if matched_keys:
                                                 full_where_clause)
     except arcpy.ExecuteError:
         print("Failed to execute SelectLayerByAttribute. Please check the WHERE clause syntax.")
-        print(f"WHERE clause attempted: {full_where_clause}")
+        print("WHERE clause attempted: {}".format(full_where_clause))
         raise
 
     selected_count = int(arcpy.GetCount_management("joined_lyr").getOutput(0))
@@ -180,10 +180,10 @@ if matched_keys:
         print("No features matched the WHERE clause. Exiting script.")
         sys.exit()
     else:
-        print(f"Number of features selected: {selected_count}")
+        print("Number of features selected: {}".format(selected_count))
 
     arcpy.CopyFeatures_management("joined_lyr", MATCHED_JOINED_FC)
-    print(f"Filtered joined feature class with matched bus stops created at:\n{MATCHED_JOINED_FC}")
+    print("Filtered joined feature class with matched bus stops created at:\n{}".format(MATCHED_JOINED_FC))
 
     joined_fc = MATCHED_JOINED_FC
 else:
@@ -225,12 +225,13 @@ with arcpy.da.UpdateCursor(joined_fc, [key_field, "XBOARD", "XALIGHT", "XTOTAL"]
             r[3] = stop_ridership_dict[code_val]['XTOTAL']
             cursor.updateRow(r)
         else:
+            # This should not occur as we've filtered matched features
             r[1] = 0
             r[2] = 0
             r[3] = 0
             cursor.updateRow(r)
 
-print(f"Bus stops shapefile updated with ridership data at:\n{joined_fc}")
+print("Bus stops shapefile updated with ridership data at:\n{}".format(joined_fc))
 
 # --------------------------------------------------------------------------
 # Step 6: Aggregate ridership by GEOID20
@@ -288,6 +289,6 @@ with arcpy.da.UpdateCursor(
 
 print(
     "Census blocks shapefile updated with aggregated ridership data at:\n"
-    f"{BLOCKS_WITH_RIDERSHIP_SHP}"
+    "{}".format(BLOCKS_WITH_RIDERSHIP_SHP)
 )
 print("Process complete.")
