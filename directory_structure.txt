@@ -2,6 +2,7 @@
 transit_planning_with_python/
 ├── README.md
 ├── LICENSE
+├── requirements.txt
 ├── .github/
 │   └── workflows/
 │       └── pylint.yml
