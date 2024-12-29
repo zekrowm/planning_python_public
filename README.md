@@ -20,6 +20,7 @@ The repository is organized for ease of use, with:
 🧑‍💻 How to Use
 
 🤝 Contributing
+
 We welcome your contributions! Feel free to open an issue or submit a pull request.
 
 📄 License
