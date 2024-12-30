@@ -304,10 +304,3 @@ problem_stops_gdf = problem_stops_gdf.to_crs(output_crs)
 output_shp_path = os.path.join(output_dir, 'problem_stops.shp')
 problem_stops_gdf.to_file(output_shp_path)
 print(f"Problem stops were exported to {output_shp_path}!")
-
-
-# In[ ]:
-
-
-
-
