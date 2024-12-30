@@ -1,12 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[20]:
-
-
-#!/usr/bin/env python
-# coding: utf-8
-
 import pandas as pd
 import geopandas as gpd
 from rapidfuzz import fuzz
