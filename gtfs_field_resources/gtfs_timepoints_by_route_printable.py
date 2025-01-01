@@ -1,16 +1,17 @@
-import os
-import sys
-import pandas as pd
-from openpyxl.utils import get_column_letter
-from openpyxl.styles import Alignment
-
 """
 gtfs_timepoints_by_route_printable.py
 
 This module processes GTFS (General Transit Feed Specification) data to generate
 printable timepoints by route. It reads GTFS files, filters trips based on
 schedule types and time windows, and exports the data to formatted Excel files.
+These exports can be printed and used for ride checks.
 """
+
+import os
+import sys
+import pandas as pd
+from openpyxl.utils import get_column_letter
+from openpyxl.styles import Alignment
 
 # ==============================
 # CONFIGURATION SECTION - CUSTOMIZE HERE
