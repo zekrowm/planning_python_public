@@ -84,7 +84,7 @@ def fix_time_format(time_str):
     return ":".join(parts)
 
 def process_and_export(data, route_dirs, output_path):
-    """Process the GTFS data and export trips per hour to an Excel workbook."""
+    """Process the GTFS data and export trips per hour to individual Excel files for each route."""
     trips = data['trips']
     stop_times = data['stop_times']
     routes = data['routes']
@@ -128,10 +128,6 @@ def process_and_export(data, route_dirs, output_path):
     print("Merged data:")
     print(merged_data.head())
 
-    # Create a new Excel workbook
-    wb = Workbook()
-    wb.remove(wb.active)  # Remove the default sheet
-
     # Process each route and direction
     for rd in route_dirs:
         route_short = rd['route_short_name']
@@ -164,13 +160,14 @@ def process_and_export(data, route_dirs, output_path):
         print(f"Trips per hour for route {route_short} direction {direction_id}:")
         print(trips_per_hour)
 
-        # Add a new sheet for the current route and direction
-        sheet_name = (
+        # Create a new Excel workbook for the current route and direction
+        wb = Workbook()
+        ws = wb.active
+        ws.title = (
             f"Route_{route_short}_Dir_{direction_id}" 
             if direction_id is not None 
             else f"Route_{route_short}_All_Directions"
         )
-        ws = wb.create_sheet(title=sheet_name)
 
         # Write headers
         ws.append(trips_per_hour.columns.tolist())
@@ -187,15 +184,20 @@ def process_and_export(data, route_dirs, output_path):
             for cell in col:
                 cell.alignment = Alignment(horizontal='center')
 
-        print(f"Processed {sheet_name}")
+        # Ensure output directory exists
+        os.makedirs(output_path, exist_ok=True)
 
-    # Ensure output directory exists
-    os.makedirs(output_path, exist_ok=True)
+        # Define the output filename
+        file_name = (
+            f"Trips_Per_Hour_Route_{route_short}_Dir_{direction_id}.xlsx" 
+            if direction_id is not None 
+            else f"Trips_Per_Hour_Route_{route_short}_All_Directions.xlsx"
+        )
+        output_file = os.path.join(output_path, file_name)
 
-    # Save the workbook
-    output_file = os.path.join(output_path, "Trips_Per_Hour_Selected_Routes.xlsx")
-    wb.save(output_file)
-    print("Trips per hour for selected routes successfully exported!")
+        # Save the workbook
+        wb.save(output_file)
+        print(f"Trips per hour for {file_name} successfully exported!")
 
 def main():
     """Main function to execute the script."""
