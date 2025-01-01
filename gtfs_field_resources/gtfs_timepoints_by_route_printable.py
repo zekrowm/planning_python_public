@@ -1,33 +1,40 @@
-
-
-import pandas as pd
 import os
+import sys
+import pandas as pd
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Alignment
+
+"""
+gtfs_timepoints_by_route_printable.py
+
+This module processes GTFS (General Transit Feed Specification) data to generate
+printable timepoints by route. It reads GTFS files, filters trips based on
+schedule types and time windows, and exports the data to formatted Excel files.
+"""
 
 # ==============================
 # CONFIGURATION SECTION - CUSTOMIZE HERE
 # ==============================
 
 # Input file paths for GTFS files (add your own paths here)
-base_input_path = r'\\your_file_path\here\\'
-trips_file = os.path.join(base_input_path, "trips.txt")
-stop_times_file = os.path.join(base_input_path, "stop_times.txt")
-routes_file = os.path.join(base_input_path, "routes.txt")
-stops_file = os.path.join(base_input_path, "stops.txt")
-calendar_file = os.path.join(base_input_path, "calendar.txt")
+BASE_INPUT_PATH = r'\\your_file_path\here\\'
+TRIPS_FILE = os.path.join(BASE_INPUT_PATH, "trips.txt")
+STOP_TIMES_FILE = os.path.join(BASE_INPUT_PATH, "stop_times.txt")
+ROUTES_FILE = os.path.join(BASE_INPUT_PATH, "routes.txt")
+STOPS_FILE = os.path.join(BASE_INPUT_PATH, "stops.txt")
+CALENDAR_FILE = os.path.join(BASE_INPUT_PATH, "calendar.txt")
 
 # Output directory (add your own path here)
-base_output_path = r'\\your_file_path\here\\'
-if not os.path.exists(base_output_path):
-    os.makedirs(base_output_path)
+BASE_OUTPUT_PATH = r'\\your_file_path\here\\'
+if not os.path.exists(BASE_OUTPUT_PATH):
+    os.makedirs(BASE_OUTPUT_PATH)
 
 # List of route short names to process
-route_short_names = ['101', '102']  # Modify as needed; check your 'routes.txt' GTFS file if unsure
+ROUTE_SHORT_NAMES = ['101', '102']  # Modify as needed; check your 'routes.txt' GTFS file if unsure
 
 # Define schedule types and corresponding days in the calendar
 # Format: {'Schedule Type': ['day1', 'day2', ...]}
-schedule_types = {
+SCHEDULE_TYPES = {
     'Weekday': ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
     'Saturday': ['saturday'],
     'Sunday': ['sunday'],
@@ -37,7 +44,7 @@ schedule_types = {
 # Time windows for filtering trips
 # Format: {'Schedule Type': {'Time Window Name': ('Start Time', 'End Time')}}
 # Times should be in 'HH:MM:SS' 24-hour format
-time_windows = {
+TIME_WINDOWS = {
     'Weekday': {
         'full_day': ('00:00', '23:59'),
         'morning': ('06:00', '09:59'),
@@ -55,11 +62,11 @@ time_windows = {
 }
 
 # Placeholder values
-missing_time = "________"
-comments_placeholder = "__________________"
+MISSING_TIME = "________"
+COMMENTS_PLACEHOLDER = "__________________"
 
 # Maximum column width for Excel output (used to wrap long headers)
-max_column_width = 30  # Adjust as needed
+MAX_COLUMN_WIDTH = 30  # Adjust as needed
 
 # ==============================
 # END OF CONFIGURATION SECTION
@@ -67,18 +74,18 @@ max_column_width = 30  # Adjust as needed
 
 # Load GTFS files with basic error handling
 try:
-    trips = pd.read_csv(trips_file)
-    stop_times = pd.read_csv(stop_times_file)
-    routes = pd.read_csv(routes_file)
-    stops = pd.read_csv(stops_file)
-    calendar = pd.read_csv(calendar_file)
+    trips = pd.read_csv(TRIPS_FILE)
+    stop_times = pd.read_csv(STOP_TIMES_FILE)
+    routes = pd.read_csv(ROUTES_FILE)
+    stops = pd.read_csv(STOPS_FILE)
+    calendar = pd.read_csv(CALENDAR_FILE)
 except FileNotFoundError as e:
     print(f"Error: {e}")
     print("Please check your input file paths in the configuration section.")
-    exit(1)
+    sys.exit(1)
 except Exception as e:
     print(f"An unexpected error occurred while reading GTFS files: {e}")
-    exit(1)
+    sys.exit(1)
 
 # Check for 'timepoint' column and filter timepoints
 if 'timepoint' in stop_times.columns:
@@ -87,18 +94,42 @@ else:
     print("Warning: 'timepoint' column not found. Using all stops as timepoints.")
     timepoints = stop_times.copy()
 
+
 def adjust_time(time_str):
+    """
+    Adjusts the time string to ensure hours are within 0-23.
+
+    Parameters:
+        time_str (str): Time string in 'HH:MM:SS' format.
+
+    Returns:
+        str or None: Adjusted time string in 'HH:MM' format or None if invalid.
+    """
     parts = time_str.strip().split(":")
     if len(parts) >= 2:
-        hours = int(parts[0])
-        minutes = int(parts[1])
-        if hours >= 24:
-            hours -= 24
-        return f"{hours:02}:{minutes:02}"
+        try:
+            hours = int(parts[0])
+            minutes = int(parts[1])
+            if hours >= 24:
+                hours -= 24
+            return f"{hours:02}:{minutes:02}"
+        except ValueError:
+            return None
     else:
         return None
 
+
 def get_ordered_stops(direction_id, relevant_trips):
+    """
+    Retrieves ordered stop names and IDs for a given direction and set of trips.
+
+    Parameters:
+        direction_id (int): The direction ID to filter trips.
+        relevant_trips (DataFrame): DataFrame containing relevant trips.
+
+    Returns:
+        tuple: A tuple containing a list of ordered stop names and a list of ordered stop IDs.
+    """
     relevant_trips_direction = relevant_trips[relevant_trips['direction_id'] == direction_id]
 
     if relevant_trips_direction.empty:
@@ -122,42 +153,63 @@ def get_ordered_stops(direction_id, relevant_trips):
     stop_names = stop_names.set_index('stop_id')['stop_name']
 
     # Create ordered list of stop names
-    ordered_stop_names = [stop_names.get(stop_id, f"Unknown Stop ID {stop_id}") for stop_id in unique_stops['stop_id']]
+    ordered_stop_names = [
+        stop_names.get(stop_id, f"Unknown Stop ID {stop_id}") for stop_id in unique_stops['stop_id']
+    ]
 
     return ordered_stop_names, unique_stops['stop_id'].tolist()
 
+
 def process_direction(relevant_trips_direction, direction_id, ordered_stop_names, ordered_stop_ids):
+    """
+    Processes trips for a specific direction and compiles schedule data.
+
+    Parameters:
+        relevant_trips_direction (DataFrame): Trips relevant to the current direction and time window.
+        direction_id (int): The direction ID being processed.
+        ordered_stop_names (list): Ordered list of stop names.
+        ordered_stop_ids (list): Ordered list of stop IDs.
+
+    Returns:
+        DataFrame: Compiled schedule data for export.
+    """
     if relevant_trips_direction.empty:
         print(f"Skipping direction_id '{direction_id}' due to lack of data.")
         return pd.DataFrame()
 
     output_data = []
 
-    for trip_id, group in timepoints[timepoints['trip_id'].isin(relevant_trips_direction['trip_id'])].groupby('trip_id'):
-        trip_info = relevant_trips_direction[relevant_trips_direction['trip_id'] == trip_id].iloc[0]
+    for trip_id, group in timepoints[
+        timepoints['trip_id'].isin(relevant_trips_direction['trip_id'])
+    ].groupby('trip_id'):
+        trip_info = relevant_trips_direction[
+            relevant_trips_direction['trip_id'] == trip_id
+        ].iloc[0]
         route_name = routes[routes['route_id'] == trip_info['route_id']]['route_short_name'].values[0]
         trip_headsign = trip_info.get('trip_headsign', '')
 
-        row = [missing_time, trip_id, route_name, direction_id, trip_headsign]
+        row = [MISSING_TIME, trip_id, route_name, direction_id, trip_headsign]
 
         # Create a dictionary to store schedule times for each stop
-        schedule_times = {stop_id: missing_time for stop_id in ordered_stop_ids}
+        schedule_times = {stop_id: MISSING_TIME for stop_id in ordered_stop_ids}
 
-        for idx, stop in group.iterrows():
+        for _, stop in group.iterrows():
             time_str = stop['departure_time'].strip()
             # Fix time format if hours >= 24
             time_str = adjust_time(time_str)
             if time_str is None:
-                print(f"Invalid time format '{stop['departure_time']}' in trip_id '{trip_id}' at stop_id '{stop['stop_id']}'")
+                print(
+                    f"Invalid time format '{stop['departure_time']}' in trip_id '{trip_id}' at stop_id '{stop['stop_id']}'"
+                )
                 continue
             schedule_times[stop['stop_id']] = time_str
 
         # Add schedule times and blank actual times for each stop
         for stop_id in ordered_stop_ids:
             row.append(schedule_times[stop_id])
-            row.append(missing_time)
+            row.append(MISSING_TIME)
 
-        row.append(comments_placeholder)
+        row.append(COMMENTS_PLACEHOLDER)
         output_data.append(row)
 
     # Create DataFrame
@@ -183,8 +235,15 @@ def process_direction(relevant_trips_direction, direction_id, ordered_stop_names
 
     return df
 
-# Function to export DataFrame to Excel with formatting using openpyxl
+
 def export_to_excel(df, output_file):
+    """
+    Exports the DataFrame to an Excel file with formatting.
+
+    Parameters:
+        df (DataFrame): The DataFrame to export.
+        output_file (str): The path to the output Excel file.
+    """
     if df.empty:
         print(f"No data to export to {output_file}.")
         return
@@ -193,7 +252,6 @@ def export_to_excel(df, output_file):
     with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Sheet1')
 
-        workbook = writer.book
         worksheet = writer.sheets['Sheet1']
 
         # Apply alignment to headers and adjust column widths
@@ -211,21 +269,26 @@ def export_to_excel(df, output_file):
                 cell.alignment = Alignment(horizontal='left')
 
             # Calculate the maximum width for this column
-            column_cells = worksheet[f'{col_letter}']
-            max_length = max(len(str(cell.value)) for cell in column_cells if cell.value is not None)
+            column_cells = worksheet[col_letter]
+            max_length = max(
+                len(str(cell.value)) for cell in column_cells if cell.value is not None
+            )
 
             # Adjust the column width, limiting it to the maximum column width
-            adjusted_width = min(max_length + 2, max_column_width)
+            adjusted_width = min(max_length + 2, MAX_COLUMN_WIDTH)
             worksheet.column_dimensions[col_letter].width = adjusted_width
 
     print(f"Data exported to {output_file}")
 
+
 # Process each schedule type
-for schedule_type, days in schedule_types.items():
+for schedule_type, days in SCHEDULE_TYPES.items():
     print(f"\nProcessing schedule type '{schedule_type}'...")
 
     if not all(day in calendar.columns for day in days):
-        print(f"Error: One or more day columns not found in calendar.txt for schedule type '{schedule_type}'.")
+        print(
+            f"Error: One or more day columns not found in calendar.txt for schedule type '{schedule_type}'."
+        )
         continue
 
     # Filter for services that are available on all specified days
@@ -236,7 +299,7 @@ for schedule_type, days in schedule_types.items():
         continue
 
     # Process each route in the list
-    for route_short_name in route_short_names:
+    for route_short_name in ROUTE_SHORT_NAMES:
         print(f"Processing route {route_short_name}...")
 
         # Get route_ids for the current route_short_name
@@ -251,7 +314,9 @@ for schedule_type, days in schedule_types.items():
         ]
 
         if relevant_trips.empty:
-            print(f"No trips found for route '{route_short_name}' with the specified service IDs for schedule type '{schedule_type}'.")
+            print(
+                f"No trips found for route '{route_short_name}' with the specified service IDs for schedule type '{schedule_type}'."
+            )
             continue  # Skip to next route
 
         # Process each direction_id present in the data
@@ -260,10 +325,14 @@ for schedule_type, days in schedule_types.items():
             print(f"Processing direction_id {direction_id}...")
 
             # Get ordered stops
-            ordered_stop_names, ordered_stop_ids = get_ordered_stops(direction_id, relevant_trips)
+            ordered_stop_names, ordered_stop_ids = get_ordered_stops(
+                direction_id, relevant_trips
+            )
 
             # Process each time window for the current schedule type
-            for time_window_name, (start_time_str, end_time_str) in time_windows.get(schedule_type, {}).items():
+            for time_window_name, (start_time_str, end_time_str) in TIME_WINDOWS.get(
+                schedule_type, {}
+            ).items():
                 print(f"Processing time window '{time_window_name}'...")
 
                 # Filter trips that depart within the specified time window
@@ -274,12 +343,18 @@ for schedule_type, days in schedule_types.items():
                 )
 
                 # Adjust departure times
-                trips_with_times['adjusted_departure_time'] = trips_with_times['departure_time'].apply(adjust_time)
-                trips_with_times['departure_timedelta'] = pd.to_timedelta(trips_with_times['adjusted_departure_time'] + ':00')
+                trips_with_times['adjusted_departure_time'] = trips_with_times[
+                    'departure_time'
+                ].apply(adjust_time)
+                trips_with_times['departure_timedelta'] = pd.to_timedelta(
+                    trips_with_times['adjusted_departure_time'] + ':00', errors='coerce'
+                )
 
                 # Get the first stop of each trip (minimum stop_sequence)
                 first_stops = trips_with_times.groupby('trip_id')['stop_sequence'].min().reset_index()
-                first_departures = trips_with_times.merge(first_stops, on=['trip_id', 'stop_sequence'])
+                first_departures = trips_with_times.merge(
+                    first_stops, on=['trip_id', 'stop_sequence']
+                )
 
                 # Convert start_time and end_time to timedelta
                 start_time = pd.to_timedelta(start_time_str + ':00')
@@ -295,29 +370,36 @@ for schedule_type, days in schedule_types.items():
                 trips_in_time_window_ids = trips_in_time_window['trip_id'].unique()
 
                 if len(trips_in_time_window_ids) == 0:
-                    print(f"No trips found in time window '{time_window_name}' for direction_id '{direction_id}'.")
+                    print(
+                        f"No trips found in time window '{time_window_name}' for direction_id '{direction_id}'."
+                    )
                     continue
 
                 # Filter relevant_trips_direction to these trips
-                relevant_trips_direction = relevant_trips[relevant_trips['trip_id'].isin(trips_in_time_window_ids)]
+                relevant_trips_direction = relevant_trips[
+                    relevant_trips['trip_id'].isin(trips_in_time_window_ids)
+                ]
 
                 # Process direction
-                df = process_direction(relevant_trips_direction, direction_id, ordered_stop_names, ordered_stop_ids)
+                df = process_direction(
+                    relevant_trips_direction,
+                    direction_id,
+                    ordered_stop_names,
+                    ordered_stop_ids
+                )
 
                 if df.empty:
-                    print(f"No data to export for route {route_short_name}, schedule '{schedule_type}', time window '{time_window_name}', direction_id '{direction_id}'.")
+                    print(
+                        f"No data to export for route {route_short_name}, schedule '{schedule_type}', "
+                        f"time window '{time_window_name}', direction_id '{direction_id}'."
+                    )
                     continue
 
                 # Export DataFrame to Excel with formatting using openpyxl
                 output_file = os.path.join(
-                    base_output_path,
+                    BASE_OUTPUT_PATH,
                     f"route_{route_short_name}_{schedule_type}_{time_window_name}_direction_{direction_id}.xlsx"
                 )
 
                 # Export to Excel with formatting
                 export_to_excel(df, output_file)
-
-
-
-
-
