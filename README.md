@@ -87,16 +87,17 @@ The **transit_planning_with_python** tools are designed to work on most systems 
 
 ### Option B: Using Python on a Work Computer with ArcPro (no geopandas)
 
-1. **Launch Jupyter Notebook:**
-   - You can launch ArcPro and then open, create, or save a Notebook within that program.
-   - After installation, you can find "Jupyter Notebook" like any other program on your computer. Clicking it will open your default browser with the notebook interface.
+1. **Open a Notebook:**
+   - If ArcPro is installed on your computer, then Python is as well.
+   - You can launch ArcPro and then open, create, or save a Notebook file (.ipynb) within that program.
+   - You can also find "Jupyter Notebook" like any other program on your computer. Clicking it will open your default browser with the notebook interface.
    - Alternately, you can run this command in the Command Prompt to launch Jupyter Notebook:
      ```bash
      jupyter notebook
      ```
 
 2. **Download Desired Scripts:**
-   - Navigate to scripts that are useful to you and your agency. Then copy and paste their contents into your active Notebook or download them as .py files.
+   - Navigate to scripts that are useful to you and your agency. Then copy and paste their contents into your active Notebook or download them as .py files. You do not need a               GitHub account to do this.
    - Alternately, you can clone or download the whole repository from GitHub.
  
 3. **Run the Script:**
