@@ -58,7 +58,7 @@ The **transit_planning_with_python** tools are designed to work on most systems 
 ### Option A: Setting Up Python on a Home Computer (no arcpy)
 
 1. **Download and Install Python:**
-   - Visit the [official Python website](https://www.python.org/downloads/) and download Python 3.7+.
+   - Visit the [official Python website](https://www.python.org/downloads/) and download Python 3.9+.
    - During installation, ensure you check the option to **"Add Python to PATH"**.
 
 2. **Install Jupyter Notebook and Required Libraries:**
