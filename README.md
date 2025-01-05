@@ -56,8 +56,8 @@ The **transit_planning_with_python** tools are designed to work on most systems 
    - If ArcPro is installed, libraries such as `arcpy` and other useful dependencies are already included.
    - However, your organization may restrict the installation of additional libraries like `geopandas` or `rapidfuzz`.
    - If unrestricted, note that `geopandas` conflicts with `arcpy`, so you will need to create a separate Python environment to use it.
-2. **Home Computer without ArcPro:**
-   - On a personal system, you can install libraries using `pip` without organization restrictions.
+2. **Home Computer with Python Installed:**
+   - On a personal system, you can install Python and any libraries using `pip` without organization restrictions.
    - Keep in mind that `arcpy` is unavailable outside of ArcPro/ArcMap environments, so certain features relying on `arcpy` won't work.
 
 Where possible, we will provide both `arcpy` and `geopandas` versions of geospatial scripts to accomodate these different setups.
@@ -108,7 +108,7 @@ By following these steps, you should have Python and the necessary tools ready t
 
 ---
 
-### Option B: Using Python on a Work Computer with ArcPro (no geopandas, rapidfuzz)
+### Option B: Using Python on a Work Computer with ArcPro
 
 1. **Open a Notebook**
    - If ArcPro is installed on your computer, then Python is as well.
