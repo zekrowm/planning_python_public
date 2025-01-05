@@ -64,7 +64,7 @@ Where possible, we will provide both `arcpy` and `geopandas` versions of geospat
 
 ---
 
-### Option A: Using Python on a Work Computer with ArcPro
+### 🖥️ Option A: Using Python on a Work Computer with ArcPro
 
 1. **Open a Notebook**
    - If ArcPro is installed on your computer, then Python is as well.
@@ -86,13 +86,13 @@ Where possible, we will provide both `arcpy` and `geopandas` versions of geospat
 
 ---
 
-### What is Jupyter Notebook?
+### ❓ What is Jupyter Notebook?
 
 Jupyter Notebook is a powerful tool for running Python scripts in an interactive environment that opens in your web browser. It allows you to write, test, and visualize Python code in a user-friendly way.
 
 ---
 
-### Option B: Setting Up Python on a Home Computer
+### 🏡 Option B: Setting Up Python on a Home Computer
 
 1. **Download and Install Python**
    - Visit the [official Python website](https://www.python.org/downloads/) and download Python 3.9 or later.
@@ -197,13 +197,13 @@ By following these steps, you should have Python and the necessary tools ready t
 
 ---
 
-### What is JupyterLab?
+### ❓ What is JupyterLab?
 
 JupyterLab is an advanced interactive development environment for data science and computational research that runs in your web browser. It builds on the functionality of Jupyter Notebook, providing a flexible interface where you can write, test, and visualize Python code alongside other tasks such as file browsing, markdown editing, and interactive data exploration.
 
 ---
 
-### Tips for Success
+### 🌟 Tips for Success
 
 - **File Paths:** Ensure all file paths are updated in the scripts to match your local system.
 - **Permissions:** If IT restrictions block library installations on your work computer, setting up Python on a home computer is recommended.
