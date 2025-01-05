@@ -46,12 +46,20 @@ The repository is organized for ease of use, with:
 
 ## 🛠️ Requirements
 
-- Python 3.7+
+- Python 3.9+
 - Common libraries like pandas, geopandas, rapidfuzz, networkx, and others listed in requirements.txt.
 
 ## 🧑‍💻 How to Use
 
-The **transit_planning_with_python** tools are designed to work on most systems with Python installed. However, if you're using a work computer configured with ArcPro, there are additional steps required due to restrictions on installing libraries like `geopandas`. Alternately, if you are using a home computer without ArcPro, you will not have access to the arcpy library.
+The **transit_planning_with_python** tools are designed to work on most systems with Python installed. Here are some key considerations based on your setup:
+1. **Work PC with ArcPro Installed:***
+   - If ArcPro is installed, libraries such as `arcpy` and other useful dependencies are already included.
+   - However, your organization may restrict the installation of additional libraries like `geopandas` or `rapidfuzz`.
+   - If unrestricted, note that `geopandas` conflicts iwht `arcpy`, so you will need to create a separate Python environment to use it.
+2. ***Home Computer without ArcPro:***
+   - On a personal system, you can install libraries using `pip` without organization restrictions.
+   - Keep in mind that `arcpy` is unavailable outside of ArcPro/ArcMap environments, so certain features relying on `arcpy` won't work.
+Where possible, we will provide both `arcpy` and `geopandas` versions of geospatial scripts to accomodate these different setups.
 
 ---
 
@@ -66,7 +74,7 @@ The **transit_planning_with_python** tools are designed to work on most systems 
      ```bash
      pip install jupyterlab pandas geopandas rapidfuzz matplotlib networkx
      ```
-3. Wait for the installation to complete. If you see warnings about scripts not      being on the PATH, don't worry - you can still use these tools.
+   - Wait for the installation to complete. If you see warnings about scripts not being on the PATH, don't worry - you can still use these tools.
 
 4. **Launch JupyterLab**
    - After installation, you can open JupyterLab in two ways:
