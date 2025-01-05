@@ -125,7 +125,7 @@ Jupyter Notebook is a powerful tool for running Python scripts in an interactive
 
 ---
 
-# Notes for Beginners
+## 💡 Notes for Beginners
 
 If you encounter any issues while installing Python or libraries, or if JupyterLab doesn't open as expected, here are some common troubleshooting steps:
 
