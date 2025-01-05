@@ -132,7 +132,13 @@ By following these steps, you should have Python and the necessary tools ready t
 
 ### What is Jupyter Notebook?
 
-Jupyter Notebook is a powerful tool for running Python scripts in an interactive environment that opens in your web browser. It allows you to write, test, and visualize Python code in a more user-friendly way.
+Jupyter Notebook is a powerful tool for running Python scripts in an interactive environment that opens in your web browser. It allows you to write, test, and visualize Python code in a user-friendly way.
+
+---
+
+### What is JupyterLab?
+
+JupyterLab is an advanced interactive development environment for data science and computational research that runs in your web browser. It builds on the functionality of Jupyter Notebook, providing a flexible interface where you can write, test, and visualize Python code alongside other tasks such as file browsing, markdown editing, and interactive data exploration.
 
 ---
 
