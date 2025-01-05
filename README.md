@@ -64,7 +64,35 @@ Where possible, we will provide both `arcpy` and `geopandas` versions of geospat
 
 ---
 
-### Option A: Setting Up Python on a Home Computer
+### Option A: Using Python on a Work Computer with ArcPro
+
+1. **Open a Notebook**
+   - If ArcPro is installed on your computer, then Python is as well.
+   - You can launch ArcPro and then open, create, or save a Notebook file (.ipynb) within that program.
+   - You can also find "Jupyter Notebook" like any other program on your computer. Clicking it will open your default browser with the notebook interface.
+   - Alternately, you can run this command in the Command Prompt to launch Jupyter Notebook:
+     ```bash
+     jupyter notebook
+     ```
+
+2. **Get the Script(s) You Need**
+   - Navigate to scripts that are useful to you and your agency. Then copy and paste their contents into an active notebook file or download them as .py files. You do not need a        GitHub account to do this.
+   - Alternately, you can clone or download the whole repository from GitHub.
+ 
+3. **Run the Script**
+   - Open the script in JupyterLab or save it as a .py file to run in Python.
+   - "Update file paths:" At a minimum, you will need to update the folder and file paths to point to your data and specify where to save any output. There may also be additional            configuration choices (e.g. choice of CRS, list of routes or stops to analyze)
+   - Run the script, follow any printed instructions or error messages, and check the output for accuracy.
+
+---
+
+### What is Jupyter Notebook?
+
+Jupyter Notebook is a powerful tool for running Python scripts in an interactive environment that opens in your web browser. It allows you to write, test, and visualize Python code in a user-friendly way.
+
+---
+
+### Option B: Setting Up Python on a Home Computer
 
 1. **Download and Install Python**
    - Visit the [official Python website](https://www.python.org/downloads/) and download Python 3.9 or later.
@@ -79,11 +107,12 @@ Where possible, we will provide both `arcpy` and `geopandas` versions of geospat
 
 4. **Launch JupyterLab**
    - After installation, you can open JupyterLab in two ways:
-      -    "From your Start menu:" Search for "JupyterLab" and open it like any other program on your computer. This will launch yoru default browser with the Jupyter interface. From there, you can create new notebook files and navigate to local files.
+      -    "From your Start menu:" Search for "JupyterLab" and open it like any other program on your computer. This will launch your default browser with the Jupyter interface.
       -    "From the Command Prompt:" Type the following command and press Enter:
      ```bash
      jupyter lab
      ```
+   - Once you have JupyterLab open, you can browse your local files and create new notebook files.
 
 4. **Get the Script(s) You Need**
    - Navigate to scripts that are useful to you and your agency. Then copy and paste their contents into an active notebook file or download them as .py files. You do not need a        GitHub account to do this.
@@ -96,43 +125,75 @@ Where possible, we will provide both `arcpy` and `geopandas` versions of geospat
 
 ---
 
-### Notes for Beginners
-- If you encounter any errors while installing Python or libraries, double-check that "Python is added to PATH" (refer to Step 1).
-- If JupyterLab doesn't open, ensure you've installed it correctly by typing the following command in the Command Prompt:
+# Notes for Beginners
+
+If you encounter any issues while installing Python or libraries, or if JupyterLab doesn't open as expected, here are some common troubleshooting steps:
+
+1. **Verify Python Installation**
+
+   Open the Command Prompt and type:
+     ```bash
+     python --version
+     ```
+
+   If this command doesn't show a Python version (e.g., `Python 3.11.5`), Python may not be installed correctly, or it isn't added to your PATH. In that case:
+   - Reinstall Python from the [official website](https://www.python.org/downloads/).
+   - During installation, ensure the option **"Add Python to PATH"** is checked.
+   - Or proceed to **Step 3: Fixing PATH Issues**
+
+2. **Check JupyterLab Installation**
+
+   To confirm JupyterLab is installed, type:
      ```bash
      jupyter lab --version
      ```
-   If this fails, rerun the installation command from Step 2.
 
-By following these steps, you should have Python and the necessary tools ready to run your scripts efficiently!
-
----
-
-### Option B: Using Python on a Work Computer with ArcPro
-
-1. **Open a Notebook**
-   - If ArcPro is installed on your computer, then Python is as well.
-   - You can launch ArcPro and then open, create, or save a Notebook file (.ipynb) within that program.
-   - You can also find "Jupyter Notebook" like any other program on your computer. Clicking it will open your default browser with the notebook interface.
-   - Alternately, you can run this command in the Command Prompt to launch Jupyter Notebook:
+   If this fails with an error like `'jupyter' is not recognized as an internal or external command`, JupyterLab is either not installed or the PATH variable isn't set correctly.  
+   Try reinstalling JupyterLab by running:
      ```bash
-     jupyter notebook
+     pip install jupyterlab
      ```
 
-2. **Download Desired Scripts**
-   - Navigate to scripts that are useful to you and your agency. Then copy and paste their contents into your active Notebook or download them as .py files. You do not need a               GitHub account to do this.
-   - Alternately, you can clone or download the whole repository from GitHub.
- 
-3. **Run the Script**
-   - Follow the instructions provided in the comments of the script(s).
-   - At a minimum, you will need to update the folder and file paths to point to your data and desired location for any output.
-   - Run the script, follow any printed instructions to resolve issues, and check the output for accuracy.
+   If the issue persists, follow the steps in **Fixing PATH Issues** below.
 
----
+3. **Fixing PATH Issues**
 
-### What is Jupyter Notebook?
+   If Python or Jupyter commands aren't recognized, you may need to manually add the Python Scripts directory to your PATH:
 
-Jupyter Notebook is a powerful tool for running Python scripts in an interactive environment that opens in your web browser. It allows you to write, test, and visualize Python code in a user-friendly way.
+   - Locate the directory where Python installed its scripts. For most users, this will be:
+        ```makefile
+     C:\Users\<YourUsername>\AppData\Roaming\Python\Python311\Scripts
+     ```
+
+   - Add this directory to your PATH:
+      - Press <kbd>Win + S</kbd>, search for **Environment Variables**, and open **Edit the system environment variables**.
+      - In the dialog, click **Environment Variables**.
+      - Under **User variables**, find and edit the **Path** variable.
+      - Add the Scripts directory to the list by clicking **New** and pasting the path above.
+
+   - Restart your Command Prompt and verify by typing:
+     ```bash
+     jupyter lab --version
+     ```   
+
+4. **Reinstalling or Updating Pip**
+
+   If the installation commands fail with errors like `pip is not recognized` or `ModuleNotFoundError`, try reinstalling or upgrading pip:
+     ```bash
+     python -m ensurepip --upgrade
+     python -m pip install --upgrade pip
+     ```   
+
+5. **Alternative Way to Open JupyterLab**
+
+   Instead of relying on PATH, you can directly use Python to run JupyterLab:
+     ```bash
+     python -m jupyter lab
+     ```
+     
+   This bypasses PATH issues entirely.
+
+By following these steps, you should have Python and the necessary tools ready to run your scripts efficiently. If you continue to face issues, feel free to consult the official documentation for [Python](https://docs.python.org/3/) or [JupyterLab](https://jupyterlab.readthedocs.io/en/latest/).
 
 ---
 
