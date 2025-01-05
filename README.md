@@ -52,25 +52,26 @@ The repository is organized for ease of use, with:
 ## 🧑‍💻 How to Use
 
 The **transit_planning_with_python** tools are designed to work on most systems with Python installed. Here are some key considerations based on your setup:
-1. **Work PC with ArcPro Installed:***
+1. **Work PC with ArcPro Installed:**
    - If ArcPro is installed, libraries such as `arcpy` and other useful dependencies are already included.
    - However, your organization may restrict the installation of additional libraries like `geopandas` or `rapidfuzz`.
-   - If unrestricted, note that `geopandas` conflicts iwht `arcpy`, so you will need to create a separate Python environment to use it.
-2. ***Home Computer without ArcPro:***
+   - If unrestricted, note that `geopandas` conflicts with `arcpy`, so you will need to create a separate Python environment to use it.
+2. **Home Computer without ArcPro:**
    - On a personal system, you can install libraries using `pip` without organization restrictions.
    - Keep in mind that `arcpy` is unavailable outside of ArcPro/ArcMap environments, so certain features relying on `arcpy` won't work.
+
 Where possible, we will provide both `arcpy` and `geopandas` versions of geospatial scripts to accomodate these different setups.
 
 ---
 
-### Option A: Setting Up Python on a Home Computer (no arcpy)
+### Option A: Setting Up Python on a Home Computer
 
 1. **Download and Install Python**
    - Visit the [official Python website](https://www.python.org/downloads/) and download Python 3.9 or later.
    - During installation, ensure you check the option to **"Add Python to PATH"**. This step is crucial for the command-line tools to work correctly.
 
 2. **Install JupyterLab and Required Libraries**
-   - Open the Command Prompt (search for "cmd" in your Start menu) and run the       following command:
+   - Open the Command Prompt (search for "cmd" in your Start menu) and run the following command:
      ```bash
      pip install jupyterlab pandas geopandas rapidfuzz matplotlib networkx
      ```
