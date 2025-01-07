@@ -19,8 +19,7 @@ GTFS_DATA_PATH = r"C:\Folder\Path\To\Your\GTFS_data" # Replace with your folder 
 # List of route_short_name values to process
 # Replace with your exact route short name(s) to process
 ROUTES = [
-    "101", "152", "340", "630", "642", "651", "698", "798",
-    "983", "RIBS1", "RIBS2", "RIBS3", "RIBS4", "RIBS5"
+    "101", "102", "103"
 ]
 
 # Buffer distance in miles
