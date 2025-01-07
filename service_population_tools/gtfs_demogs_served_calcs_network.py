@@ -29,7 +29,8 @@ DEMOGRAPHICS_SHP_PATH = r"C:\path\to\census_blocks.shp"
 # Synthetic fields to process
 SYNTHETIC_FIELDS = [
     "total_pop", "total_hh", "tot_empl", "low_wage", "mid_wage", "high_wage",
-    "est_minori", "est_lep", "est_lo_veh", "est_lo_v_1", "est_youth", "est_elderl"
+    "est_minori", "est_lep", "est_lo_veh", "est_lo_v_1", "est_youth", "est_elderl",
+    "est_low_in"
 ]  # Replace with your own values
 
 # CRS - set the coordinate reference system for area calculations
