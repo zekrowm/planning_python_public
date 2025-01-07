@@ -1,6 +1,13 @@
 """
-This module processes GTFS data along with a demographics shapefile
-to compute coverage areas for specific routes.
+This module processes GTFS data and a demographics shapefile to produce
+buffers around transit stops and compute estimated demographic measures
+for individual routes.
+
+Optional:
+- Filter demographic data based on the 'FIPS' jurisdiction column from the US Census.
+  The FIPS code has two digits indicating state followed by three digits indicating jurisdiction.
+  Set FIPS_FILTER in the configuration section to a list of FIPS codes to apply the filter.
+  Set to an empty list to disable filtering and use all features in the demographics shapefile.
 """
 
 import os
@@ -14,7 +21,7 @@ from shapely.geometry import Point
 # ==============================
 
 # GTFS data path
-GTFS_DATA_PATH = r"C:\Folder\Path\To\Your\GTFS_data" # Replace with your folder path
+GTFS_DATA_PATH = r"C:\Folder\Path\To\Your\GTFS_data"  # Replace with your folder path
 
 # List of route_short_name values to process
 # Replace with your exact route short name(s) to process
@@ -26,7 +33,10 @@ ROUTES = [
 BUFFER_DISTANCE = 0.5
 
 # Demographics shapefile path
-DEMOGRAPHICS_SHP_PATH = r"C:\File\Path\To\Your\census_blocks.shp" # Replace with your file path
+DEMOGRAPHICS_SHP_PATH = r"C:\File\Path\To\Your\census_blocks.shp"  # Replace with your file path
+
+# Optional FIPS filter. Provide a list of FIPS codes to filter, or an empty list to include all.
+FIPS_FILTER = ['11001']  # Default filter; set to [] to disable
 
 # Synthetic fields to process
 # Replace with your service population data column names
@@ -34,14 +44,14 @@ SYNTHETIC_FIELDS = [
     "total_pop", "total_hh", "tot_empl", "low_wage", "mid_wage", "high_wage",
     "est_minori", "est_lep", "est_lo_veh", "est_lo_v_1", "est_youth", "est_elderl",
     "est_low_in"
-] # Replace with your own values
+]
 
 # CRS - set the coordinate reference system for area calculations
 # Replace with the appropriate EPSG code for your region
 CRS_EPSG_CODE = 3395
 
 # Output directory - set the directory for saving the final processed data
-OUTPUT_DIRECTORY = r"C:\Folder\Path\To\Your\Output" # Replace with your folder path
+OUTPUT_DIRECTORY = r"C:\Folder\Path\To\Your\Output"  # Replace with your folder path
 
 # ==============================
 # END OF CONFIGURATION SECTION
@@ -120,7 +130,18 @@ try:
 
     # Reproject data to the specified CRS
     stops_gdf = stops_gdf.to_crs(epsg=CRS_EPSG_CODE)
+    
+    # Load demographics shapefile
     demographics_gdf = gpd.read_file(DEMOGRAPHICS_SHP_PATH)
+
+    # Apply FIPS filter if specified
+    if FIPS_FILTER:
+        demographics_gdf = demographics_gdf[demographics_gdf['FIPS'].isin(FIPS_FILTER)]
+        print(f"Applied FIPS filter: {', '.join(FIPS_FILTER)}")
+    else:
+        print("No FIPS filter applied; processing all FIPS codes.")
+
+    # Reproject demographics data to the specified CRS
     demographics_gdf = demographics_gdf.to_crs(epsg=CRS_EPSG_CODE)
 
     # Buffer stops
