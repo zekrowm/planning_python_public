@@ -1,6 +1,11 @@
 """
 This module processes GTFS data and a demographic shapefile to produce
-buffers around transit stops and compute synthetic demographic measures.
+buffers around transit stops and compute estimated demographic measures.
+
+Optional:
+- Filter demographic data based on the 'FIPS' County column from the US Census.
+  Set FIPS_FILTER in the configuration section to a list of FIPS codes to apply the filter.
+  Set to an empty list to disable filtering and use all features in the demographics shapefile.
 """
 
 import os
@@ -25,6 +30,9 @@ BUFFER_DISTANCE = 0.5
 
 # Demographics shapefile path
 DEMOGRAPHICS_SHP_PATH = r"C:\path\to\census_blocks.shp"
+
+# Optional FIPS filter. Provide a list of FIPS codes to filter, or an empty list to include all.
+FIPS_FILTER = ['11001']  # Default filter; set to [] to disable
 
 # Synthetic fields to process
 SYNTHETIC_FIELDS = [
@@ -118,6 +126,14 @@ try:
     # Reproject data to the specified CRS
     stops_gdf = stops_gdf.to_crs(epsg=CRS_EPSG_CODE)
     demographics_gdf = gpd.read_file(DEMOGRAPHICS_SHP_PATH)
+    
+    # Apply FIPS filter if specified
+    if FIPS_FILTER:
+        demographics_gdf = demographics_gdf[demographics_gdf['FIPS'].isin(FIPS_FILTER)]
+        print(f"Applied FIPS filter: {', '.join(FIPS_FILTER)}")
+    else:
+        print("No FIPS filter applied; processing all FIPS codes.")
+    
     demographics_gdf = demographics_gdf.to_crs(epsg=CRS_EPSG_CODE)
 
     # Buffer stops
