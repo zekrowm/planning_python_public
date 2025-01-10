@@ -14,12 +14,6 @@ This script processes census data by performing the following operations:
 Configuration:
 - Customize input and output directories in the configuration section.
 - Specify the relevant input files and FIPS codes to tailor the data processing to your needs.
-
-Dependencies:
-- os
-- geopandas
-- pandas
-- matplotlib.pyplot
 """
 
 import os
