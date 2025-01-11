@@ -3,7 +3,7 @@ name: Pylint
 on:
   schedule:
     - cron: '0 0 * * SUN'  # Runs at 00:00 UTC on Sundays
-  workflow_dispatch:      # Allows manual triggering
+  workflow_dispatch:        # Allows manual triggering
 
 jobs:
   lint:
@@ -35,34 +35,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: List Python Files for Pylint
+      - name: Find Python Files for Pylint
+        id: find_files
         run: |
           echo "Detecting Python files for Pylint analysis..."
           # Find all Python files, excluding the 'arcpy_tools' directory
-          FILES=$(git ls-files '*.py' | grep -v '^arcpy_tools/')
-          
-          # Alternatively, use find to include all Python files
-          # FILES=$(find . -type f -name "*.py" ! -path "./arcpy_tools/*")
+          FILES=$(find . -type f -name "*.py" ! -path "./arcpy_tools/*")
           
           echo "Python files detected:"
           echo "$FILES"
           
           echo "Total Python files to analyze: $(echo "$FILES" | wc -l)"
           
-          # Export FILES variable for the next step
-          echo "FILES<<EOF" >> $GITHUB_ENV
-          echo "$FILES" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          # Save the list of files to the GitHub environment
+          echo "files=$FILES" >> $GITHUB_ENV
 
       - name: Analyze Code with Pylint
         run: |
-          echo "Starting Pylint analysis..."
+          echo "Starting Pylint analysis on each file..."
           
-          # Access the FILES variable from environment
-          for file in $FILES; do
+          # Iterate over each file and run Pylint
+          for file in $files; do
             echo "------------------------------"
             echo "Pylint analysis for: $file"
-            pylint "$file" --disable=duplicate-code
+            pylint "$file" --disable=duplicate-code || echo "Pylint failed for $file"
             echo "------------------------------"
           done
         continue-on-error: true  # Allows the workflow to continue even if Pylint fails
