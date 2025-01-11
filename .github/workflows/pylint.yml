@@ -45,17 +45,21 @@ jobs:
           echo "Python files detected:"
           echo "$FILES"
           
-          echo "Total Python files to analyze: $(echo "$FILES" | wc -l)"
+          FILE_COUNT=$(echo "$FILES" | wc -l)
+          echo "Total Python files to analyze: $FILE_COUNT"
           
-          # Save the list of files to the GitHub environment
-          echo "files=$FILES" >> $GITHUB_ENV
+          # Replace newlines with spaces to create a space-separated list
+          FILES_SPACE_SEP=$(echo "$FILES" | tr '\n' ' ')
+          
+          # Export the space-separated FILES variable for the next step
+          echo "FILES=$FILES_SPACE_SEP" >> $GITHUB_ENV
 
       - name: Analyze Code with Pylint
         run: |
           echo "Starting Pylint analysis on each file..."
           
           # Iterate over each file and run Pylint
-          for file in $files; do
+          for file in $FILES; do
             echo "------------------------------"
             echo "Pylint analysis for: $file"
             pylint "$file" --disable=duplicate-code || echo "Pylint failed for $file"
