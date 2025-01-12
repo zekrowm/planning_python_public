@@ -1,7 +1,7 @@
 """
 This script processes transportation route geometries and stop locations to split routes
-into segments based on stop positions. It is designed for use with transit network data 
-and GTFS feeds, making it suitable for tasks such as stop spacing analysis, transit 
+into segments based on stop positions. It is designed for use with transit network data
+and GTFS feeds, making it suitable for tasks such as stop spacing analysis, transit
 performance evaluation, and network optimization.
 """
 
