@@ -5,9 +5,9 @@
 GTFS Schedule Processor
 =======================
 
-This script processes General Transit Feed Specification (GTFS) data to generate 
+This script processes General Transit Feed Specification (GTFS) data to generate
 Excel reports for specified transit routes and schedules (e.g. route 99 weekday schedule).
-It reads GTFS files such as trips, stop times, routes, stops, and calendar, and produces 
+It reads GTFS files such as trips, stop times, routes, stops, and calendar, and produces
 organized Excel sheets with schedule times that emulate public printed schedules.
 
 Configuration:
