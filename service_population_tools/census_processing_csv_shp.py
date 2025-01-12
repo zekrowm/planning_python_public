@@ -104,7 +104,10 @@ SHAPEFILE_FOLDER_NAME = "va_md_dc_census_blocks_folder" # Replace with your pref
 
 # ----------------------- SHP DATA BY TRACT ------------------------------
 # Load and merge all shapefiles into a single GeoDataFrame
-gdf_list = [gpd.read_file(os.path.join(BASE_INPUT_FOLDER, file)) for file in input_files]
+gdf_list = [
+    gpd.read_file(os.path.join(BASE_INPUT_FOLDER, file)) 
+    for file in input_files
+]
 merged_gdf = gpd.GeoDataFrame(pd.concat(gdf_list, ignore_index=True), crs=gdf_list[0].crs)
 
 # Create a new 'FIPS' column and filter based on FIPS codes
@@ -162,8 +165,14 @@ column_mapping_income = {
 }
 
 # Read and process income data
-df_income = pd.concat([pd.read_csv(os.path.join(BASE_INPUT_FOLDER, f), skiprows=[1]).rename(columns=column_mapping_income)[list(column_mapping_income.values())]
-                       for f in csv_files_income], ignore_index=True)
+df_income = pd.concat(
+    [
+        pd.read_csv(os.path.join(BASE_INPUT_FOLDER, f), skiprows=[1])
+        .rename(columns=column_mapping_income)[list(column_mapping_income.values())] 
+        for f in csv_files_income
+    ],
+    ignore_index=True
+)
 
 # Calculate total low-income households and percentage
 df_income['low_income'] = df_income[['sub_10k', '10k_15k', '15k_20k', '20k_25k', '25k_30k', '30k_35k',
@@ -406,12 +415,3 @@ result_gdf = filtered_gdf.merge(df_filtered_blocks, left_on='GEOIDFQ20', right_o
 # Save the result as a shapefile in the newly created folder
 result_gdf.to_file(shapefile_output_path)
 print(f"Shapefile saved to: {shapefile_output_path}")
-
-
-
-
-
-
-
-
-
