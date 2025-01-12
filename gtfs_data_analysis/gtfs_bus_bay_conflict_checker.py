@@ -3,7 +3,7 @@
 
 """
 This script identifies conflicts in GTFS bus bay usage by analyzing
-stop times, trips, and layovers/dwell times for selected stops of 
+stop times, trips, and layovers/dwell times for selected stops of
 interest.
 """
 
@@ -83,7 +83,7 @@ def get_trip_ranges_and_ends(block_segments):
 def get_minute_status_location(minute, block_segments, trips_info):
     """
     Determine the status and location of a block at a given minute.
-    
+
     Returns a tuple:
     (status, location, route_short_name, direction_id, stop_id)
     """
@@ -122,7 +122,7 @@ def get_minute_status_location(minute, block_segments, trips_info):
             # Dwelling at stop (inclusive of dep_sec)
             if arr_sec <= current_sec <= dep_sec:
                 return (
-                    "dwelling at stop", row['stop_id'], rname, 
+                    "dwelling at stop", row['stop_id'], rname,
                     dirid, row['stop_id']
                 )
 
@@ -132,17 +132,17 @@ def get_minute_status_location(minute, block_segments, trips_info):
                     gap = narr - dep_sec
                     if gap > LAYOVER_THRESHOLD * 60:  # Use global constant
                         return (
-                            "laying over", row['stop_id'], rname, 
+                            "laying over", row['stop_id'], rname,
                             dirid, row['stop_id']
                         )
                     else:
                         return (
-                            "running route", "traveling between stops", 
+                            "running route", "traveling between stops",
                             rname, dirid, ""
                         )
                 else:
                     return (
-                        "running route", "traveling between stops", 
+                        "running route", "traveling between stops",
                         rname, dirid, ""
                     )
 
@@ -397,7 +397,7 @@ def create_per_stop_excels(stops_of_interest, block_dataframes, output_folder, m
 
         with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
             summary_cols = [
-                'minute', 'time_str', 'num_blocks', 
+                'minute', 'time_str', 'num_blocks',
                 'blocks_present_str', 'routes_present_str', 'conflict'
             ]
             summary_df[summary_cols].to_excel(
@@ -408,8 +408,8 @@ def create_per_stop_excels(stops_of_interest, block_dataframes, output_folder, m
                 bdf = block_dataframes[b_id]
                 bdf[
                     [
-                        'minute', 'time_str', 'block_id', 
-                        'route_short_name', 'direction', 'stop_id', 
+                        'minute', 'time_str', 'block_id',
+                        'route_short_name', 'direction', 'stop_id',
                         'stop_name', 'status'
                     ]
                 ].to_excel(
@@ -536,7 +536,7 @@ def create_summary_of_summaries(stops_of_interest, block_dataframes, output_fold
     with pd.ExcelWriter(summary_output_file, engine='openpyxl') as writer:
         # Define columns explicitly without 'conflict'
         base_cols = [
-            'minute', 'time_str', 'num_blocks', 
+            'minute', 'time_str', 'num_blocks',
             'blocks_present_str', 'routes_present_str'
         ]
         per_stop_cols = []
@@ -562,4 +562,3 @@ def create_summary_of_summaries(stops_of_interest, block_dataframes, output_fold
 create_summary_of_summaries(
     stops_of_interest, block_dataframes, BASE_OUTPUT_PATH, minute_range, stop_name_map
 )
-
