@@ -120,25 +120,25 @@ def find_nearby_routes(gdf_locations, stops_gdf, stop_times_trips_routes, buffer
     for i, location in gdf_locations.iterrows():
         # Create a buffer around the location
         location_buffer = location.geometry.buffer(buffer_distance)
-        
+    
         # Find stops within the buffer
         nearby_stops = stops_gdf[stops_gdf.geometry.within(location_buffer)]
-        
+
         # Get stop_ids of nearby stops
         nearby_stop_ids = nearby_stops['stop_id'].unique()
-        
+
         # Find the routes associated with these stops
         nearby_routes = stop_times_trips_routes[stop_times_trips_routes['stop_id'].isin(nearby_stop_ids)]
-        
+
         # Get unique route short names
         unique_routes = nearby_routes['route_short_name'].unique()
-        
+
         # Prepare the result
         if len(unique_routes) > 0:
             routes_str = ', '.join(unique_routes)
         else:
             routes_str = 'No routes'
-        
+
         results.append({
             'Location': location['name'],
             'Routes': routes_str
@@ -159,53 +159,46 @@ def main():
         print("Checking input files...")
         check_input_files(gtfs_input_path, gtfs_files)
         print("All input files are present.\n")
-        
+
         print("Loading GTFS data...")
         data = load_gtfs_data(gtfs_input_path, gtfs_files)
         print("GTFS data loaded successfully.\n")
-        
+
         print("Creating GeoDataFrame for manual locations...")
         gdf_locations = create_geodataframe_locations(manual_locations)
         print("GeoDataFrame for locations created.\n")
-        
+
         print("Creating GeoDataFrame for stops...")
         stops_gdf = create_geodataframe_stops(data['stops'])
         print("GeoDataFrame for stops created.\n")
-        
+
         print("Reprojecting GeoDataFrames to projected CRS...")
         gdf_locations_proj, stops_gdf_proj = reproject_geodataframes(gdf_locations, stops_gdf, projected_crs)
-        
+
         # Convert buffer distance to feet
         buffer_distance_feet = convert_buffer_distance(buffer_distance, buffer_unit)
         print(f"Buffer distance set to {buffer_distance_feet} feet ({buffer_distance} {buffer_unit}).\n")
-        
+
         print("Merging stop_times with trips...")
         stop_times_trips = pd.merge(data['stop_times'], data['trips'], on='trip_id')
         print(f"Merged stop_times with trips: {len(stop_times_trips)} records.\n")
-        
+
         print("Merging with routes to associate routes with trips and stop times...")
         stop_times_trips_routes = pd.merge(stop_times_trips, data['routes'], on='route_id')
         print(f"Merged with routes: {len(stop_times_trips_routes)} records.\n")
-        
+
         print("Finding nearby routes for each location...")
         results = find_nearby_routes(gdf_locations_proj, stops_gdf_proj, stop_times_trips_routes, buffer_distance_feet)
         print("Nearby routes found for all locations.\n")
-        
+
         # Define output file path
         output_file = os.path.join(output_path, "nearby_routes.csv")
         print(f"Saving results to {output_file}...")
         save_results_to_csv(results, output_file)
         print("Process completed successfully!")
-        
+
     except Exception as e:
         print(f"An error occurred: {e}")
 
 if __name__ == "__main__":
     main()
-
-
-# In[ ]:
-
-
-
-
