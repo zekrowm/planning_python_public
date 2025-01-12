@@ -7,10 +7,10 @@ Park and Ride Jobs Residents Served Script
 
 Overview:
 ---------
-This script evaluates the accessibility of Park and Ride facilities by analyzing the number of jobs 
-and residents served within specified time frames using public transit and road networks. It processes 
-GTFS data to build transit networks, identifies reachable stops, creates accessible areas around 
-facilities, and integrates census demographic data to estimate the population and employment 
+This script evaluates the accessibility of Park and Ride facilities by analyzing the number of jobs
+and residents served within specified time frames using public transit and road networks. It processes
+GTFS data to build transit networks, identifies reachable stops, creates accessible areas around
+facilities, and integrates census demographic data to estimate the population and employment
 characteristics served.
 
 Key Features:
