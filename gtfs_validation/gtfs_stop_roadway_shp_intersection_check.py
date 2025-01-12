@@ -76,9 +76,9 @@ stops_gdf = stops_gdf.to_crs(TARGET_CRS)
 
 # Perform spatial join to find stops that intersect roadways
 intersecting_stops = gpd.sjoin(
-    stops_gdf, 
-    roadways_gdf, 
-    how='inner', 
+    stops_gdf,
+    roadways_gdf,
+    how='inner',
     predicate='intersects'
 )
 
@@ -116,9 +116,9 @@ def determine_conflict_depth(stops_gdf, roadways_gdf, buffer_distances):
 
         # Spatial join to find stops that intersect the buffered roadways
         buffered_join = gpd.sjoin(
-            stops_gdf, 
-            roadways_buffered[['geometry']], 
-            how='left', 
+            stops_gdf,
+            roadways_buffered[['geometry']],
+            how='left',
             predicate='intersects'
         )
 
@@ -129,8 +129,8 @@ def determine_conflict_depth(stops_gdf, roadways_gdf, buffer_distances):
 
 # Determine depth of conflict and update intersecting_stops
 intersecting_stops = determine_conflict_depth(
-    intersecting_stops, 
-    roadways_gdf, 
+    intersecting_stops,
+    roadways_gdf,
     BUFFER_DISTANCES
 )
 
