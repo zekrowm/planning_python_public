@@ -95,10 +95,10 @@ if not os.path.exists(BASE_OUTPUT_PATH):
 def fix_time_format(time_str):
     """
     Convert the given time to HH:MM format, ignoring seconds if present.
-    
+
     Parameters:
         time_str (str): Time string in 'HH:MM:SS' or 'HH:MM' format.
-    
+
     Returns:
         str: Time string in 'HH:MM' format.
     """
@@ -172,18 +172,18 @@ for schedule_name, days in SCHEDULE_TYPES.items():
 
         # Add 'act_arrival' and 'act_departure' columns with placeholders
         cluster_data.insert(
-            cluster_data.columns.get_loc('arrival_time') + 1, 
-            'act_arrival', 
+            cluster_data.columns.get_loc('arrival_time') + 1,
+            'act_arrival',
             '________'
         )
         cluster_data.insert(
             cluster_data.columns.get_loc('departure_time') + 1, 
-            'act_departure', 
+            'act_departure',
             '________'
         )
         cluster_data.insert(
-            cluster_data.columns.get_loc('block_id') + 1, 
-            'act_block', 
+            cluster_data.columns.get_loc('block_id') + 1,
+            'act_block',
             '________'
         )
 
@@ -201,9 +201,9 @@ for schedule_name, days in SCHEDULE_TYPES.items():
 
         # Add 'stop_name' column next to 'stop_id'
         cluster_data = pd.merge(
-            cluster_data, 
-            stops[['stop_id', 'stop_name']], 
-            on='stop_id', 
+            cluster_data,
+            stops[['stop_id', 'stop_name']],
+            on='stop_id',
             how='left'
         )
 
@@ -222,7 +222,7 @@ for schedule_name, days in SCHEDULE_TYPES.items():
                 'shape_dist_traveled', 'shape_id', 'route_id', 'service_id',
                 'trip_id', 'timepoint', 'direction_id', 'stop_headsign', 'pickup_type',
                 'drop_off_type', 'wheelchair_accessible', 'bikes_allowed', 'trip_short_name'
-            ], 
+            ],
             errors='ignore'
         )
 
