@@ -2,9 +2,9 @@
 # coding: utf-8
 """
 This script optimizes bus bay assignments by analyzing GTFS data.
+- You can optionally allow each route+direction to have a separate bay
+  or force all directions of the same route into the same bay.
 - Conflict analysis is performed at the block level (each block represents a physical bus).
-- Each route is assigned to exactly one bay.
-- Interlined routes (same block serving multiple routes at different times) can be assigned to different bays.
 """
 
 import os
@@ -29,7 +29,9 @@ CONFIG = {
     },
     "output_folder": r"C:\Your\Folder\Path\for\Output",
     "comparison_output_filename": "BayAssignment_Comparison.xlsx",
-    "extended_offservice_threshold": 60  # in minutes
+    "extended_offservice_threshold": 60,  # in minutes
+    "allow_splitting_by_direction": True  # Toggle True to allow route assignment to multiple bays
+                                          # Toggle False to assign both route directions together
 }
 
 LAYOVER_THRESHOLD = 15  # in minutes
@@ -181,25 +183,21 @@ def load_gtfs_data(gtfs_folder):
         data[file.split('.', maxsplit=1)[0]] = pd.read_csv(path, dtype=str)
     return data
 
-def build_route_occupancy(block_segments, stops_of_interest):
+###############################################################################
+# BUILD OCCUPANCY
+###############################################################################
+
+def build_occupancy(block_segments, stops_of_interest, split_by_direction=False):
     """
-    Build a dictionary mapping each route to the minutes it has buses at the stops of interest.
+    Build a dictionary for occupancy:
+        - Key = route_short_name  OR  (route_short_name, direction_id)
+        - Value = {minute: occupant_count} # occupant_count = # of buses at that minute
     
-    Parameters
-    ----------
-    block_segments : pd.DataFrame
-        DataFrame containing stop_times for all blocks.
-    stops_of_interest : list of str
-        List of stop IDs to consider for occupancy.
-
-    Returns
-    -------
-    dict
-        {route_short_name: {minute: number_of_buses_present}}
+    If split_by_direction=True, we use (route, direction_id) as the key,
+    otherwise just the route_short_name alone.
     """
-    route_occupancy = defaultdict(lambda: defaultdict(int))
+    occupancy = defaultdict(lambda: defaultdict(int))
 
-    # Identify all unique blocks
     blocks = block_segments['block_id'].unique()
 
     for blk in blocks:
@@ -211,8 +209,8 @@ def build_route_occupancy(block_segments, stops_of_interest):
         if not trips_info:
             continue
 
-        min_sec = min(t[1] for t in trips_info)
-        max_sec = max(t[2] for t in trips_info)
+        min_sec = min(t[1] for t in trips_info)  # earliest start
+        max_sec = max(t[2] for t in trips_info)  # latest end
         start_min = min_sec // 60
         end_min = max_sec // 60
 
@@ -221,89 +219,77 @@ def build_route_occupancy(block_segments, stops_of_interest):
                 minute, block_data, trips_info
             )
             if status in ["dwelling at stop", "laying over"] and location in stops_of_interest:
-                if rname:  # Ensure route_short_name isn't empty
-                    route_occupancy[rname][minute] += 1
+                if rname:
+                    if split_by_direction and dirid in ['0', '1', 0, 1]:
+                        # Make sure we handle direction_id as int or string consistently
+                        direction_str = str(dirid)
+                        occupancy[(rname, direction_str)][minute] += 1
+                    else:
+                        occupancy[rname][minute] += 1
 
     # Convert inner defaultdicts to normal dicts
-    route_occupancy = {route: dict(mins) for route, mins in route_occupancy.items()}
-    return route_occupancy
+    occupancy = {k: dict(v) for k, v in occupancy.items()}
+    return occupancy
 
 ###############################################################################
-# CONFLICT & ASSIGNMENT LOGIC
+# DEFAULT ASSIGNMENT (ROUND-ROBIN)
 ###############################################################################
 
-def build_default_assignments(route_to_minutes, bay_labels):
+def build_default_assignments(occupancy_dict, bay_labels):
     """
-    A trivial "default" assignment: round-robin each route among the available bays.
+    A trivial "default" assignment: round-robin each key among the available bays.
 
-    Parameters
-    ----------
-    route_to_minutes : dict
-        {route_short_name: {minute: occupant_count}}
-    bay_labels : list of str
-        The bays we have available.
-
-    Returns
-    -------
-    dict
-        {route_short_name: bay_label}
+    occupancy_dict keys = either route_short_name or (route_short_name, direction_id).
     """
     default_assignment = {}
-    route_ids = sorted(route_to_minutes.keys())
+    all_keys = sorted(occupancy_dict.keys(), key=lambda x: str(x))
+
     idx = 0
-    for route_id in route_ids:
-        default_assignment[route_id] = bay_labels[idx % len(bay_labels)]
+    for key in all_keys:
+        default_assignment[key] = bay_labels[idx % len(bay_labels)]
         idx += 1
     return default_assignment
 
-def build_and_solve_ilp_one_bay_per_route(route_occupancy, bay_labels, stop_ids):
-    """
-    ILP: One bay per route, conflict counted using route-level occupancy
-         (derived from block-level presence).
+###############################################################################
+# ILP: ASSIGN ONE BAY PER KEY
+###############################################################################
 
-    Parameters
-    ----------
-    route_occupancy : dict
-      {route_short_name: {minute: occupant_count}}, occupant_count = # of buses from route at minute M.
-    bay_labels : list of str
-      All possible bays to assign each route to.
-    stop_ids : list of str
-      For logging only.
-
-    Returns
-    -------
-    (route_assignments, total_conflict)
-      route_assignments: {route: bay_label}
-      total_conflict: float
+def build_and_solve_ilp(occupancy_dict, bay_labels, stop_ids, problem_name="BayAssignment"):
     """
-    print(f"\n=== ILP: One Bay per Route, conflict from block-level presence ===")
+    ILP: Assign exactly one bay to each key in occupancy_dict.
+    conflict counted using occupant presence across minutes.
+
+    occupancy_dict:
+      { key -> { minute -> occupant_count } }
+      where key is either route_short_name or (route_short_name, direction_id)
+    """
+    print(f"\n=== ILP: {problem_name} ===")
     print(f"Stops of interest = {stop_ids}")
 
-    # 1) Gather all routes and all relevant minutes
-    all_routes = sorted(route_occupancy.keys())
-    all_minutes = sorted({m for rocc in route_occupancy.values() for m in rocc.keys()})
+    # 1) Gather all keys and all relevant minutes
+    all_keys = sorted(occupancy_dict.keys(), key=lambda x: str(x))
+    all_minutes = sorted({m for occ in occupancy_dict.values() for m in occ.keys()})
 
     # 2) Create the model
-    model = LpProblem("OneBayPerRoute_BlocksConflict", LpMinimize)
+    model = LpProblem(problem_name, LpMinimize)
 
-    # Binary var x_{r,bay} = 1 if route r is assigned to bay
+    # Binary var x_{k,bay} = 1 if key k is assigned to bay
     x = {}
-    for r in all_routes:
+    for k in all_keys:
+        safe_k = re.sub(r'[^A-Za-z0-9]', '_', str(k))
         for bay in bay_labels:
-            safe_r = re.sub(r'[^A-Za-z0-9]', '_', r)
             safe_bay = re.sub(r'[^A-Za-z0-9]', '_', bay)
-            var_name = f"x_{safe_r}_{safe_bay}"
-            x[(r, bay)] = LpVariable(var_name, cat=LpBinary)
+            var_name = f"x_{safe_k}_{safe_bay}"
+            x[(k, bay)] = LpVariable(var_name, cat=LpBinary)
 
-    # Each route must be assigned to exactly one bay
-    for r in all_routes:
+    # Each key must be assigned to exactly one bay
+    for k in all_keys:
         model += (
-            lpSum(x[(r, bay)] for bay in bay_labels) == 1,
-            f"OneBayForRoute_{r}"
+            lpSum(x[(k, bay)] for bay in bay_labels) == 1,
+            f"OneBayFor_{k}"
         )
 
     # Conflict var z_{bay,minute} >= occupantCount_{bay,minute} - 1
-    # occupantCount_{bay,minute} = sum of (occupancy_r(m) * x_{r,bay})
     z = {}
     for bay in bay_labels:
         safe_bay = re.sub(r'[^A-Za-z0-9]', '_', bay)
@@ -311,19 +297,18 @@ def build_and_solve_ilp_one_bay_per_route(route_occupancy, bay_labels, stop_ids)
             var_name = f"z_{safe_bay}_{minute}"
             z[(bay, minute)] = LpVariable(var_name, lowBound=0, cat=LpInteger)
 
-            # occupantCount = sum of (occupancy_r(m) * x_{r,bay})
             occupant_expr = lpSum(
-                route_occupancy[r].get(minute, 0) * x[(r, bay)]
-                for r in all_routes
+                occupancy_dict[k].get(minute, 0) * x[(k, bay)]
+                for k in all_keys
             )
 
-            # Constraint: z_{bay,minute} >= occupantCount - 1
+            # z_{bay, minute} >= occupant_expr - 1
             model += (
                 z[(bay, minute)] >= occupant_expr - 1,
                 f"ConflictMin_{bay}_{minute}"
             )
 
-    # Objective: minimize the sum of all z_{bay,minute}
+    # Objective: minimize the sum of z_{bay,minute}
     model += lpSum(z.values()), "TotalConflicts"
 
     # 3) Solve
@@ -339,90 +324,87 @@ def build_and_solve_ilp_one_bay_per_route(route_occupancy, bay_labels, stop_ids)
     print(f" Total conflict minutes = {total_conflicts}")
 
     # 4) Extract solution
-    route_assignments = {}
-    for r in all_routes:
+    assignments = {}
+    for k in all_keys:
         chosen_bay = None
         for bay in bay_labels:
-            var_value = value(x[(r, bay)])
-            if var_value > 0.5:
+            if value(x[(k, bay)]) > 0.5:
                 chosen_bay = bay
                 break
-        route_assignments[r] = chosen_bay
+        assignments[k] = chosen_bay
 
-    return route_assignments, total_conflicts
+    return assignments, total_conflicts
 
-def evaluate_conflicts_per_route(route_to_minutes, assignments):
+###############################################################################
+# EVALUATE CONFLICTS
+###############################################################################
+
+def evaluate_conflicts(occupancy_dict, assignments):
     """
-    From the ROUTE perspective, count conflicts for each route.
+    From the occupancy perspective, count conflicts for each key.
 
-    If route R is in bay B at minute M, and at least one other route is also
-    in B at minute M, then route R is in conflict for that minute.
+    If a key k is in bay B at minute M, and at least one other key is also
+    in B at minute M, that is a conflict for each bus occupant in that minute.
 
-    Parameters
-    ----------
-    route_to_minutes : dict
-        {route_short_name: {minute: occupant_count}}
-    assignments : dict
-        {route_short_name: bay_label}
-
-    Returns
-    -------
-    dict
-        {route_short_name: conflict_minutes}
+    Return: { key -> conflict_minutes_count }
     """
-    # Build bay->minute->list-of-routes
-    bay_to_minute_routes = defaultdict(lambda: defaultdict(list))
-    for route_id, bay_assigned in assignments.items():
-        for minute, count in route_to_minutes[route_id].items():
-            # Each count represents 'count' buses from this route at this minute
+    # Build bay->minute->list-of-keys
+    bay_to_minute_keys = defaultdict(lambda: defaultdict(list))
+    for k, bay_assigned in assignments.items():
+        for minute, count in occupancy_dict[k].items():
+            # Each 'count' indicates that many buses from key k at minute
             for _ in range(count):
-                bay_to_minute_routes[bay_assigned][minute].append(route_id)
+                bay_to_minute_keys[bay_assigned][minute].append(k)
 
-    # For each route, count how many of its active minutes are in conflict
-    route_conflicts = defaultdict(int)
-    for route_id, bay_assigned in assignments.items():
-        for minute, count in route_to_minutes[route_id].items():
-            # Total buses from all routes at this bay and minute
-            total_buses = len(bay_to_minute_routes[bay_assigned][minute])
+    # For each key, count how many of its active "bus appearances" are in conflict
+    key_conflicts = defaultdict(int)
+    for k, bay_assigned in assignments.items():
+        for minute, count in occupancy_dict[k].items():
+            total_buses = len(bay_to_minute_keys[bay_assigned][minute])
             if total_buses > 1:
-                route_conflicts[route_id] += count  # Each bus counts separately
+                # conflict for each occupant
+                key_conflicts[k] += count
 
-    return dict(route_conflicts)
+    return dict(key_conflicts)
 
-def rebuild_bay_schedules(route_to_minutes, assignments, bay_labels):
+###############################################################################
+# MINUTE-BY-MINUTE BAY SCHEDULES
+###############################################################################
+
+def rebuild_bay_schedules(occupancy_dict, assignments, bay_labels):
     """
-    Construct minute-by-minute schedules for each bay: which routes are present?
-    Useful for debugging or exporting to Excel. Return {bay_label: DataFrame}.
+    Construct minute-by-minute schedules for each bay: which keys are present?
+    Return {bay_label: DataFrame} for debugging/export.
     """
-    if not route_to_minutes:
+    if not occupancy_dict:
         return {}
 
-    max_minute = max(m for mins in route_to_minutes.values() for m in mins.keys())
+    max_minute = max(m for occ in occupancy_dict.values() for m in occ.keys())
     bay_schedules = {}
 
     for bay in bay_labels:
-        # Which routes are assigned to this bay
-        routes_in_bay = [r for r, a in assignments.items() if a == bay]
+        # Which keys are assigned to this bay
+        keys_in_bay = [k for k, a in assignments.items() if a == bay]
 
-        # Minute -> which routes are present
-        minute_to_routes = defaultdict(list)
-        for route_id in routes_in_bay:
-            for minute, count in route_to_minutes[route_id].items():
+        # Minute -> which keys are present
+        minute_to_keys = defaultdict(list)
+        for k in keys_in_bay:
+            for minute, count in occupancy_dict[k].items():
                 for _ in range(count):
-                    minute_to_routes[minute].append(route_id)
+                    minute_to_keys[minute].append(k)
 
         records = []
         for minute in range(0, max_minute + 1):
-            present_routes = minute_to_routes.get(minute, [])
-            conflict_count = max(0, len(present_routes) - 1)
-            routes_str = ", ".join(sorted(present_routes)) if present_routes else ""
+            present_keys = minute_to_keys.get(minute, [])
+            conflict_count = max(0, len(present_keys) - 1)
+            keys_str = ", ".join(str(ky) for ky in sorted(present_keys)) if present_keys else ""
             time_str = f"{(minute // 60):02d}:{(minute % 60):02d}"
 
             records.append({
                 "minute": minute,
                 "time_str": time_str,
                 "conflict_count": conflict_count,
-                "routes_present_str": routes_str
+                "keys_present_str": keys_str
             })
 
         bay_df = pd.DataFrame(records)
@@ -431,15 +413,15 @@ def rebuild_bay_schedules(route_to_minutes, assignments, bay_labels):
     return bay_schedules
 
 ###############################################################################
-# NEW: EXPORT COMPARISON RESULTS
+# EXPORT RESULTS
 ###############################################################################
 
 def export_comparison_results(
-    route_to_minutes,
+    occupancy_dict,
     default_assignments,
-    default_route_conflicts,
+    default_conflicts,
     optimized_assignments,
-    optimized_route_conflicts,
+    optimized_conflicts,
     bay_labels,
     output_folder,
     output_filename
@@ -447,46 +429,36 @@ def export_comparison_results(
     """
     Exports an Excel file comparing default and optimized assignments, plus
     minute-by-minute schedules for both.
-
-    Parameters
-    ----------
-    route_to_minutes : dict
-        {route_short_name: {minute: occupant_count}}
-    default_assignments : dict
-        {route_short_name: bay_label} for the default approach
-    default_route_conflicts : dict
-        {route_short_name: conflict_minutes}
-    optimized_assignments : dict
-        {route_short_name: bay_label} for the optimized approach
-    optimized_route_conflicts : dict
-        {route_short_name: conflict_minutes}
-    bay_labels : list of str
-        Bays to iterate over
-    output_folder : str
-        Destination folder for the Excel
-    output_filename : str
-        Filename for the Excel
     """
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
         print(f"Created output folder: {output_folder}")
 
     # Prepare comparison DataFrame
-    route_ids = sorted(route_to_minutes.keys())
+    all_keys = sorted(occupancy_dict.keys(), key=lambda x: str(x))
     comparison_data = []
-    for route_id in route_ids:
+    for k in all_keys:
+        # If keys are (route, direction), parse them
+        if isinstance(k, tuple):
+            route_id, dir_id = k
+        else:
+            route_id = k
+            dir_id = None
+
         comparison_data.append({
+            "key": str(k),
             "route": route_id,
-            "default_bay": default_assignments.get(route_id, "Unassigned"),
-            "default_conflict_minutes": default_route_conflicts.get(route_id, 0),
-            "optimized_bay": optimized_assignments.get(route_id, "Unassigned"),
-            "optimized_conflict_minutes": optimized_route_conflicts.get(route_id, 0)
+            "direction": dir_id if dir_id is not None else "",
+            "default_bay": default_assignments.get(k, "Unassigned"),
+            "default_conflict_minutes": default_conflicts.get(k, 0),
+            "optimized_bay": optimized_assignments.get(k, "Unassigned"),
+            "optimized_conflict_minutes": optimized_conflicts.get(k, 0)
         })
     df_comparison = pd.DataFrame(comparison_data)
 
     # Rebuild schedules
-    default_schedules = rebuild_bay_schedules(route_to_minutes, default_assignments, bay_labels)
-    optimized_schedules = rebuild_bay_schedules(route_to_minutes, optimized_assignments, bay_labels)
+    default_schedules = rebuild_bay_schedules(occupancy_dict, default_assignments, bay_labels)
+    optimized_schedules = rebuild_bay_schedules(occupancy_dict, optimized_assignments, bay_labels)
 
     output_path = os.path.join(output_folder, output_filename)
     with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
@@ -521,8 +493,7 @@ def main():
     # 1. Load GTFS
     gtfs_data = load_gtfs_data(CONFIG["gtfs_folder"])
 
-    # 2. Process data -> route_to_minutes and block_to_minutes
-    #    We'll focus on building route_to_minutes for ILP
+    # 2. Process data -> occupancy dict
     stop_times = gtfs_data['stop_times']
     trips = gtfs_data['trips']
     routes = gtfs_data['routes'][['route_id', 'route_short_name']]
@@ -553,9 +524,13 @@ def main():
     stop_times['next_stop_id'] = stop_times.groupby('trip_id')['stop_id'].shift(-1)
     stop_times['next_arrival_seconds'] = stop_times.groupby('trip_id')['arrival_seconds'].shift(-1)
 
-    # 3. Build route occupancy dictionary
-    route_to_minutes = build_route_occupancy(stop_times, CONFIG["stops_of_interest"])
-    print("Built route_to_minutes using block-level presence.")
+    # 3. Build occupancy dictionary (split or not, based on config)
+    occupancy_dict = build_occupancy(
+        stop_times,
+        CONFIG["stops_of_interest"],
+        split_by_direction=CONFIG["allow_splitting_by_direction"]
+    )
+    print("Built occupancy dictionary with block-level presence.")
 
     # 4. Build the list of bays
     bay_labels = []
@@ -565,51 +540,52 @@ def main():
             bay_label = f"{stop_id}_Bay{idx+1}"
             bay_labels.append(bay_label)
 
-    print(f"\nTotal bays to assign routes to: {len(bay_labels)}")
+    print(f"\nTotal bays to assign: {len(bay_labels)}")
     print(f"Bays: {bay_labels}")
 
     # -------------------------------------------------------------------------
     # (A) DEFAULT ASSIGNMENT
     # -------------------------------------------------------------------------
-    default_assignments = build_default_assignments(route_to_minutes, bay_labels)
-    default_route_conflicts = evaluate_conflicts_per_route(route_to_minutes, default_assignments)
-    default_total_conflict = sum(default_route_conflicts.values())
+    default_assignments = build_default_assignments(occupancy_dict, bay_labels)
+    default_conflicts = evaluate_conflicts(occupancy_dict, default_assignments)
+    default_total_conflict = sum(default_conflicts.values())
 
-    print("\nDEFAULT ASSIGNMENT - ROUTE CONFLICTS:")
-    for route_id in sorted(default_route_conflicts.keys()):
-        print(f"  Route {route_id} => {default_route_conflicts[route_id]} conflict minutes")
-    print(f"Total route conflict minutes (Default) = {default_total_conflict}")
+    print("\nDEFAULT ASSIGNMENT - CONFLICTS PER KEY:")
+    for k in sorted(default_conflicts.keys(), key=lambda x: str(x)):
+        print(f"  {k} => {default_conflicts[k]} conflict minutes")
+    print(f"Total conflict minutes (Default) = {default_total_conflict}")
 
     # -------------------------------------------------------------------------
     # (B) OPTIMIZED ASSIGNMENT (ILP)
     # -------------------------------------------------------------------------
-    optimized_assignments, total_conflicts_bay_perspective = build_and_solve_ilp_one_bay_per_route(
-        route_to_minutes,
+    optimized_assignments, total_conflicts_bay_perspective = build_and_solve_ilp(
+        occupancy_dict,
         bay_labels,
-        CONFIG["stops_of_interest"]
+        CONFIG["stops_of_interest"],
+        problem_name="OneBayPerKey_BlocksConflict"
     )
     if total_conflicts_bay_perspective is None:
         print("ILP was infeasible or not optimal. Consider adjusting the number of bays.")
         return
 
-    # Evaluate from the route perspective
-    optimized_route_conflicts = evaluate_conflicts_per_route(route_to_minutes, optimized_assignments)
-    optimized_total_route_conflict = sum(optimized_route_conflicts.values())
+    # Evaluate from the perspective of each key
+    optimized_conflicts = evaluate_conflicts(occupancy_dict, optimized_assignments)
+    optimized_total_conflict = sum(optimized_conflicts.values())
 
-    print("\nOPTIMIZED ASSIGNMENT - ROUTE CONFLICTS:")
-    for route_id in sorted(optimized_route_conflicts.keys()):
-        print(f"  Route {route_id} => {optimized_route_conflicts[route_id]} conflict minutes")
-    print(f"Total route conflict minutes (Optimized) = {optimized_total_route_conflict}")
+    print("\nOPTIMIZED ASSIGNMENT - CONFLICTS PER KEY:")
+    for k in sorted(optimized_conflicts.keys(), key=lambda x: str(x)):
+        print(f"  {k} => {optimized_conflicts[k]} conflict minutes")
+    print(f"Total conflict minutes (Optimized) = {optimized_total_conflict}")
 
     # -------------------------------------------------------------------------
     # (C) EXPORT COMPARISON TO EXCEL
     # -------------------------------------------------------------------------
     export_comparison_results(
-        route_to_minutes,
+        occupancy_dict,
         default_assignments,
-        default_route_conflicts,
+        default_conflicts,
         optimized_assignments,
-        optimized_route_conflicts,
+        optimized_conflicts,
         bay_labels,
         CONFIG["output_folder"],
         CONFIG["comparison_output_filename"]
@@ -618,21 +594,22 @@ def main():
     # -------------------------------------------------------------------------
     # (D) PRINT FINAL SUMMARY
     # -------------------------------------------------------------------------
-    print("\nFINAL (OPTIMIZED) ROUTE ASSIGNMENTS:")
-    for route_id, bay_label in sorted(optimized_assignments.items()):
-        print(f"  Route {route_id} => {bay_label}")
+    print("\nFINAL (OPTIMIZED) ASSIGNMENTS:")
+    sorted_keys = sorted(optimized_assignments.keys(), key=lambda x: str(x))
+    for k in sorted_keys:
+        print(f"  {k} => {optimized_assignments[k]}")
 
     print("\nTotal conflict minutes (Bay perspective):")
     print(f"  {total_conflicts_bay_perspective} (across all bays)")
 
-    print("\nTotal conflict minutes (Route perspective):")
-    print(f"  {optimized_total_route_conflict} (sum of route conflict-minutes)")
+    print("\nTotal conflict minutes (Sum across keys):")
+    print(f"  {optimized_total_conflict}")
 
     # -------------------------------------------------------------------------
-    # (E) OPTIONAL: Build minute-by-minute bay schedules (for debugging/Excel)
+    # (E) OPTIONAL: Build minute-by-minute bay schedules
     # -------------------------------------------------------------------------
-    final_bay_schedules = rebuild_bay_schedules(route_to_minutes, optimized_assignments, bay_labels)
-    # To export these schedules, you can modify the export_comparison_results function or add another export step.
+    final_bay_schedules = rebuild_bay_schedules(occupancy_dict, optimized_assignments, bay_labels)
+    # Already exported in the comparison workbook if desired.
 
     print("\nDone.")
 
