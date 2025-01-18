@@ -9,13 +9,14 @@ reports of trips for selected routes based on a specified time interval and expo
 the results to Excel workbooks.
 """
 
-import os
-import pandas as pd
-from openpyxl import Workbook
-from openpyxl.utils import get_column_letter
-from openpyxl.styles import Alignment
 from datetime import datetime, time
 import math
+import os
+
+import pandas as pd
+from openpyxl import Workbook
+from openpyxl.styles import Alignment
+from openpyxl.utils import get_column_letter
 
 # ==============================
 # CONFIGURATION SECTION - CUSTOMIZE HERE
