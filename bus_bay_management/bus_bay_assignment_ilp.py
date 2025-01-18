@@ -7,12 +7,12 @@ and uses a more sophisticated minute-by-minute conflict logic to determine
 bus/block statuses, such as laying over and off-service periods.
 """
 
+from collections import defaultdict
 import os
-import math
 import re
+
 import pandas as pd
 import pulp
-from collections import defaultdict
 
 ###############################################################################
 # CONFIGURATION
