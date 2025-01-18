@@ -1,9 +1,9 @@
-pandas==1.5.3
-geopandas==0.13.0
-openpyxl==3.1.2
-rapidfuzz==3.11.0
-matplotlib==3.7.1
-networkx==3.1
-shapely==2.0.1
-pylint==2.15.10
-pulp==2.9.0
+pandas==1.5.3            # Data manipulation and analysis
+geopandas==0.13.0        # Geospatial data handling
+shapely==2.0.1           # Geometric operations
+matplotlib==3.7.1        # Plotting library
+networkx==3.1            # Network analysis
+openpyxl==3.1.2          # Excel file handling
+rapidfuzz==3.11.0        # Fuzzy string matching
+pulp==2.9.0              # Linear programming
+pylint==2.15.10          # Code linting (development)
