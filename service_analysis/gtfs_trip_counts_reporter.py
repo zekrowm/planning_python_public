@@ -137,7 +137,7 @@ def process_and_export(data, route_dirs, output_path, interval_minutes, calendar
         relevant_service_ids = calendar[mask]['service_id']
         print("Relevant service IDs based on calendar filter:")
         print(relevant_service_ids)
-        
+
         # Filter trips to include only those with relevant service IDs
         trips_filtered = trips[trips['service_id'].isin(relevant_service_ids)]
         print("Filtered trips based on calendar:")
@@ -286,8 +286,8 @@ def process_and_export(data, route_dirs, output_path, interval_minutes, calendar
 
                 # Define the output filename
                 file_name = (
-                    f"Trips_Per_{interval_minutes}Min_Service_{service_id}_Route_{route_short}_Dir_{direction_id}.xlsx" 
-                    if direction_id is not None 
+                    f"Trips_Per_{interval_minutes}Min_Service_{service_id}_Route_{route_short}_Dir_{direction_id}.xlsx"
+                    if direction_id is not None
                     else f"Trips_Per_{interval_minutes}Min_Service_{service_id}_Route_{route_short}_All_Directions.xlsx"
                 )
                 output_file = os.path.join(output_path, file_name)
@@ -303,8 +303,8 @@ def process_and_export(data, route_dirs, output_path, interval_minutes, calendar
         wb = Workbook()
         ws = wb.active
         ws.title = (
-            f"Route_{route_short}_Dir_{direction_id}" 
-            if direction_id is not None 
+            f"Route_{route_short}_Dir_{direction_id}"
+            if direction_id is not None
             else f"Route_{route_short}_All_Directions"
         )
 
@@ -328,8 +328,8 @@ def process_and_export(data, route_dirs, output_path, interval_minutes, calendar
 
         # Define the output filename
         file_name = (
-            f"Trips_Per_{interval_minutes}Min_Route_{route_short}_Dir_{direction_id}.xlsx" 
-            if direction_id is not None 
+            f"Trips_Per_{interval_minutes}Min_Route_{route_short}_Dir_{direction_id}.xlsx"
+            if direction_id is not None
             else f"Trips_Per_{interval_minutes}Min_Route_{route_short}_All_Directions.xlsx"
         )
         output_file = os.path.join(output_path, file_name)
@@ -346,7 +346,7 @@ def main():
             raise ValueError("TIME_INTERVAL_MINUTES must be a positive integer.")
         if 1440 % TIME_INTERVAL_MINUTES != 0:
             print(f"Warning: {TIME_INTERVAL_MINUTES} does not evenly divide into 1440 minutes. Some time bins may overlap or miss.")
-        
+
         # Check if all input files exist
         check_input_files(BASE_INPUT_PATH, gtfs_files)
 
@@ -355,10 +355,10 @@ def main():
 
         # Process data and export to Excel
         process_and_export(
-            data, 
-            route_directions, 
-            BASE_OUTPUT_PATH, 
-            TIME_INTERVAL_MINUTES, 
+            data,
+            route_directions,
+            BASE_OUTPUT_PATH,
+            TIME_INTERVAL_MINUTES,
             CALENDAR_FILTER_DAYS
         )
 
