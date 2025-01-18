@@ -61,15 +61,15 @@ def get_trip_ranges_and_ends(block_segments):
     return trips_info
 
 def get_minute_status_location_complex(
-    minute: int, 
-    block_segments: pd.DataFrame, 
-    trips_info: list, 
-    layover_threshold: int = LAYOVER_THRESHOLD, 
+    minute: int,
+    block_segments: pd.DataFrame,
+    trips_info: list,
+    layover_threshold: int = LAYOVER_THRESHOLD,
     extended_offservice_threshold: int = CONFIG["extended_offservice_threshold"]
 ):
     """
     Logic logic for determining the bus's status and location at a given minute.
-    
+
     Inputs:
     -------
     minute : int
@@ -82,13 +82,13 @@ def get_minute_status_location_complex(
     layover_threshold : int
         The (short) layover threshold in minutes to distinguish 'laying over' vs. 'running route'.
     extended_offservice_threshold : int
-        A longer threshold in minutes indicating the bus is truly off-service 
+        A longer threshold in minutes indicating the bus is truly off-service
         (e.g., if the gap between consecutive trips is large).
-    
+
     Returns:
     --------
     (status, location, route_short_name, direction_id, stop_id)
-    
+
     Possible statuses:
       - "dwelling at stop"   => The bus is physically at a stop during scheduled dwell time
       - "running route"      => The bus is traveling between stops
@@ -101,31 +101,31 @@ def get_minute_status_location_complex(
       - If "off-service" or "inactive", location = "inactive"
     """
     current_sec = minute * 60
-    
+
     if not trips_info:
         # No trips in this block => always inactive
         return ("inactive", "inactive", "", "", "")
-    
+
     # Identify earliest start and latest end among all trips in this block
     earliest_start = min(t[1] for t in trips_info)
     latest_end     = max(t[2] for t in trips_info)
-    
+
     # If we’re before the first trip or after the last trip
     if current_sec < earliest_start or current_sec > latest_end:
         return ("inactive", "inactive", "", "", "")
-    
+
     # Check if we are in the window of a specific trip
     active_trip_idx = None
     for i, (tid, tstart, tend, rname, dirid, start_stp, end_stp) in enumerate(trips_info):
         if tstart <= current_sec <= tend:
             active_trip_idx = i
             break
-    
+
     if active_trip_idx is not None:
         # We found an active trip whose time range contains current_sec
         (tid, tstart, tend, rname, dirid, start_stp, end_stp) = trips_info[active_trip_idx]
         tsub = block_segments[block_segments['trip_id'] == tid].sort_values('arrival_seconds')
-        
+
         # Step through each stop in this trip
         for i in range(len(tsub)):
             row = tsub.iloc[i]
@@ -133,16 +133,16 @@ def get_minute_status_location_complex(
             dep_sec = row['departure_seconds']
             nstp    = row['next_stop_id']
             narr    = row['next_arrival_seconds']
-            
+
             # Dwelling at the current stop if current_sec is between arr_sec and dep_sec
             if arr_sec <= current_sec <= dep_sec:
                 return ("dwelling at stop", row['stop_id'], rname, dirid, row['stop_id'])
-            
+
             # If we have a next stop time, check if we’re traveling
             if pd.notnull(narr):
                 # Convert narr to an int if needed
                 narr_sec = int(narr)
-                
+
                 if dep_sec < current_sec < narr_sec:
                     # traveling or possibly a short layover
                     # If the next stop is the same as the current stop => potential layover
@@ -154,12 +154,12 @@ def get_minute_status_location_complex(
                             return ("running route", "traveling between stops", rname, dirid, "")
                     else:
                         return ("running route", "traveling between stops", rname, dirid, "")
-        
-        # If we reach here, we might be beyond the last stop's departure_seconds 
+
+        # If we reach here, we might be beyond the last stop's departure_seconds
         # but still within tstart–tend (which can happen if there's slack time at the end).
         # We can treat that as either "laying over" or "off-service" at the final stop.
         return ("laying over", end_stp, rname, dirid, end_stp)
-    
+
     else:
         # We’re between trips within this block. Determine if it’s a short layover or extended off-service.
         # 1) Find the trip that ended last
@@ -167,25 +167,25 @@ def get_minute_status_location_complex(
         # 3) Evaluate the gap
         prev_trip = None
         next_trip = None
-        
+
         for i, (tid, tstart, tend, rname, dirid, start_stp, end_stp) in enumerate(trips_info):
             if tend < current_sec:
                 prev_trip = (tid, tstart, tend, rname, dirid, start_stp, end_stp)
             if current_sec < tstart and next_trip is None:
                 next_trip = (tid, tstart, tend, rname, dirid, start_stp, end_stp)
                 break
-        
+
         # If there is no previous trip, that means we haven't reached the first trip's start yet
         if not prev_trip:
             return ("inactive", "inactive", "", "", "")
-        
+
         (ptid, ptstart, ptend, prname, pdirid, pstart_stp, pend_stp) = prev_trip
         gap_to_next_trip = None
-        
+
         if next_trip:
             (ntid, ntstart, ntend, nrname, ndirid, nstart_stp, nend_stp) = next_trip
             gap_to_next_trip = ntstart - ptend
-        
+
         # If there's a next trip, check how large the gap is
         if gap_to_next_trip is not None:
             if gap_to_next_trip <= layover_threshold * 60:
@@ -200,7 +200,7 @@ def get_minute_status_location_complex(
                 return ("off-service", "inactive", "", "", "")
         else:
             # No next trip => we are after the last trip, but we’re inside earliest_start..latest_end
-            # This can happen if the last trip ended earlier than the block’s "latest_end" 
+            # This can happen if the last trip ended earlier than the block’s "latest_end"
             # but GTFS didn’t schedule any more trips in the block.
             # Usually treat as off-service or layover at final stop:
             return ("off-service", "inactive", "", "", "")
