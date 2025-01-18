@@ -1,4 +1,3 @@
-
 transit_planning_with_python/
 ├── README.md
 ├── LICENSE
@@ -6,29 +5,33 @@ transit_planning_with_python/
 ├── .github/
 │   └── workflows/
 │       └── pylint.yml
-├── arcpy_tools/
-│   └── bus_stops_ridership_joiner.py
-├── gtfs_data_analysis/
-│   ├── gtfs_bus_bay_conflict_checker.py
-│   ├── gtfs_headway_span_trips_calculator.py
-│   ├── gtfs_trips_hourly_reporter.py
-│   └── manual_gtfs_nearby_routes.py
+├── bus_bay_management/
+│   ├── bus_bay_assignment_ilp.py
+│   └── gtfs_bus_bay_conflict_checker.py
 ├── gtfs_field_resources/
+│   ├── bus_block_exporter.py
 │   ├── gtfs_bus_arrivals_checklist_cluster_validation.py
 │   ├── gtfs_bus_arrivals_checklist_printable.py
-│   ├── gtfs_bus_arrivals_checklist_processing.py
-│   ├── gtfs_schedule_exporter.py
 │   ├── gtfs_stop_boardings_by_route_printable.py
-│   └── gtfs_timepoints_by_route_printable.py
+│   ├── gtfs_timepoints_by_route_printable.py
+│   └── schedule_exporter.py
 ├── gtfs_validation/
-│   ├── gtfs_recovery_dwell_time_conflict_check.py
 │   ├── gtfs_stop_capitalization_suffix_checker.py
 │   ├── gtfs_stop_road_shp_typo_finder.py
 │   ├── gtfs_stop_roadway_shp_intersection_check.py
 │   └── gtfs_to_system_shp_checker.py
 ├── network_analysis/
-│   └── park_and_ride_accessibility.py
-└── service_population_tools/
-    ├── census_processing_csv_shp.py
-    ├── gtfs_demogs_served_calcs_network.py
-    └── gtfs_demogs_served_calcs_routes.py
+│   ├── park_and_ride_accessibility.py
+│   └── stop_spacing_calculator.py
+├── ridership_tools/
+│   ├── bus_stops_ridership_joiner.py
+│   └── ridership_by_route_and_stop_processor.py
+├── service_analysis/
+│   ├── gtfs_headway_span_trips_calculator.py
+│   ├── gtfs_nearby_routes_finder.py
+│   └── gtfs_trip_counts_reporter.py
+├── service_population_tools/
+│   ├── census_processing_csv_shp.py
+│   ├── gtfs_demogs_served_calcs_network.py
+│   └── gtfs_demogs_served_calcs_routes.py
+└── directory_structure.txt
