@@ -1,15 +1,14 @@
 #!/usr/bin/env python
 # coding: utf-8
-
 """
 This script optimizes bus bay assignments by analyzing GTFS data directly
 and uses a more sophisticated minute-by-minute conflict logic to determine
 bus/block statuses, such as laying over and off-service periods.
 """
 
-from collections import defaultdict
 import os
 import re
+from collections import defaultdict
 
 import pandas as pd
 import pulp
@@ -39,26 +38,62 @@ LAYOVER_THRESHOLD = 15  # in minutes
 # SNIPPET-STYLE HELPER FUNCTIONS
 ###############################################################################
 
-def time_to_seconds(t):
-    """Convert HH:MM:SS time format to total seconds, including times >= 24:00:00."""
-    parts = t.split(":")
-    h, m, s = map(int, parts)
-    return h * 3600 + m * 60 + s
+def time_to_seconds(time_str):
+    """
+    Convert HH:MM:SS time format to total seconds, including times >= 24:00:00.
+
+    Parameters
+    ----------
+    time_str : str
+        A string in the format "HH:MM:SS", which may exceed 24 hours in GTFS data.
+
+    Returns
+    -------
+    int
+        Total number of seconds.
+    """
+    parts = time_str.split(":")
+    hours, minutes, seconds = map(int, parts)
+    return hours * 3600 + minutes * 60 + seconds
 
 def get_trip_ranges_and_ends(block_segments):
-    """Return (trip_id, trip_start, trip_end, route_short_name, direction_id, start_stop, end_stop)."""
+    """
+    Return a list of tuples with trip-related info:
+    (trip_id, trip_start, trip_end, route_short_name, direction_id, start_stop, end_stop).
+
+    Parameters
+    ----------
+    block_segments : pd.DataFrame
+        A subset of stop_times rows for a single block.
+
+    Returns
+    -------
+    list of tuples
+        Each tuple is (trip_id, trip_start, trip_end, route_short_name, direction_id,
+                       start_stop, end_stop).
+    """
     trips_info = []
-    for tid in block_segments['trip_id'].unique():
-        tsub = block_segments[block_segments['trip_id'] == tid].sort_values('arrival_seconds')
+    unique_trips = block_segments['trip_id'].unique()
+    for trip_id in unique_trips:
+        tsub = block_segments[block_segments['trip_id'] == trip_id].sort_values('arrival_seconds')
         trip_start = tsub['arrival_seconds'].min()
-        trip_end   = tsub['departure_seconds'].max()
+        trip_end = tsub['departure_seconds'].max()
         route_short_name = tsub['route_short_name'].iloc[0]
         direction_id = tsub['direction_id'].iloc[0]
         start_stop = tsub.iloc[0]['stop_id']
-        end_stop   = tsub.iloc[-1]['stop_id']
-        trips_info.append((tid, trip_start, trip_end, route_short_name, direction_id, start_stop, end_stop))
-    trips_info.sort(key=lambda x: x[1])
+        end_stop = tsub.iloc[-1]['stop_id']
+        trips_info.append((
+            trip_id,
+            trip_start,
+            trip_end,
+            route_short_name,
+            direction_id,
+            start_stop,
+            end_stop
+        ))
+    trips_info.sort(key=lambda x: x[1])  # sort by trip_start
     return trips_info
+
 
 def get_minute_status_location_complex(
     minute: int,
@@ -68,37 +103,38 @@ def get_minute_status_location_complex(
     extended_offservice_threshold: int = CONFIG["extended_offservice_threshold"]
 ):
     """
-    Logic logic for determining the bus's status and location at a given minute.
+    Determine the bus's status and location at a given minute for the given block.
 
-    Inputs:
-    -------
+    Parameters
+    ----------
     minute : int
         Minute of the day (00:00 = minute 0).
     block_segments : pd.DataFrame
         Rows for this block from stop_times (already merged with route info, etc.).
     trips_info : list
-        A list of (trip_id, trip_start, trip_end, route_short_name, direction_id, start_stop, end_stop),
-        sorted by trip_start.
-    layover_threshold : int
-        The (short) layover threshold in minutes to distinguish 'laying over' vs. 'running route'.
-    extended_offservice_threshold : int
-        A longer threshold in minutes indicating the bus is truly off-service
-        (e.g., if the gap between consecutive trips is large).
+        A list of (trip_id, trip_start, trip_end, route_short_name, direction_id,
+        start_stop, end_stop), sorted by trip_start.
+    layover_threshold : int, optional
+        The (short) layover threshold in minutes (default = LAYOVER_THRESHOLD).
+    extended_offservice_threshold : int, optional
+        A longer threshold in minutes indicating the bus is truly off-service (default from CONFIG).
 
-    Returns:
-    --------
-    (status, location, route_short_name, direction_id, stop_id)
+    Returns
+    -------
+    tuple
+        (status, location, route_short_name, direction_id, stop_id)
 
     Possible statuses:
-      - "dwelling at stop"   => The bus is physically at a stop during scheduled dwell time
-      - "running route"      => The bus is traveling between stops
-      - "laying over"        => The bus is at the last stop of the previous trip, within layover threshold
-      - "off-service"        => The bus is not in active use (gap > extended_offservice_threshold)
-      - "inactive"           => The bus is outside its entire operating window for the day
-    location:
-      - If "dwelling at stop" or "laying over", location = the stop_id
-      - If "running route", location = "traveling between stops"
-      - If "off-service" or "inactive", location = "inactive"
+      - "dwelling at stop": The bus is physically at a stop during scheduled dwell time
+      - "running route": The bus is traveling between stops
+      - "laying over": The bus is at the last stop of the previous trip, within layover threshold
+      - "off-service": The bus is not in active use (gap > extended_offservice_threshold)
+      - "inactive": The bus is outside its entire operating window for the day
+
+    The location is:
+      - The stop_id if status is "dwelling at stop" or "laying over"
+      - "traveling between stops" if status = "running route"
+      - "inactive" if status = "off-service" or "inactive"
     """
     current_sec = minute * 60
 
@@ -107,8 +143,8 @@ def get_minute_status_location_complex(
         return ("inactive", "inactive", "", "", "")
 
     # Identify earliest start and latest end among all trips in this block
-    earliest_start = min(t[1] for t in trips_info)
-    latest_end     = max(t[2] for t in trips_info)
+    earliest_start = min(trp[1] for trp in trips_info)
+    latest_end = max(trp[2] for trp in trips_info)
 
     # If we’re before the first trip or after the last trip
     if current_sec < earliest_start or current_sec > latest_end:
@@ -116,9 +152,9 @@ def get_minute_status_location_complex(
 
     # Check if we are in the window of a specific trip
     active_trip_idx = None
-    for i, (tid, tstart, tend, rname, dirid, start_stp, end_stp) in enumerate(trips_info):
+    for idx, (tid, tstart, tend, rname, dirid, stp_st, stp_end) in enumerate(trips_info):
         if tstart <= current_sec <= tend:
-            active_trip_idx = i
+            active_trip_idx = idx
             break
 
     if active_trip_idx is not None:
@@ -127,90 +163,95 @@ def get_minute_status_location_complex(
         tsub = block_segments[block_segments['trip_id'] == tid].sort_values('arrival_seconds')
 
         # Step through each stop in this trip
-        for i in range(len(tsub)):
-            row = tsub.iloc[i]
+        for _, row in tsub.iterrows():
             arr_sec = row['arrival_seconds']
             dep_sec = row['departure_seconds']
-            nstp    = row['next_stop_id']
-            narr    = row['next_arrival_seconds']
+            next_stp = row['next_stop_id']
+            next_arr = row['next_arrival_seconds']
 
-            # Dwelling at the current stop if current_sec is between arr_sec and dep_sec
+            # Dwelling at the current stop
             if arr_sec <= current_sec <= dep_sec:
                 return ("dwelling at stop", row['stop_id'], rname, dirid, row['stop_id'])
 
             # If we have a next stop time, check if we’re traveling
-            if pd.notnull(narr):
-                # Convert narr to an int if needed
-                narr_sec = int(narr)
-
+            if pd.notnull(next_arr):
+                narr_sec = int(next_arr)
                 if dep_sec < current_sec < narr_sec:
                     # traveling or possibly a short layover
-                    # If the next stop is the same as the current stop => potential layover
-                    if nstp == row['stop_id']:
+                    if next_stp == row['stop_id']:
                         gap = narr_sec - dep_sec
                         if gap > layover_threshold * 60:
-                            return ("laying over", row['stop_id'], rname, dirid, row['stop_id'])
-                        else:
-                            return ("running route", "traveling between stops", rname, dirid, "")
-                    else:
-                        return ("running route", "traveling between stops", rname, dirid, "")
+                            return (
+                                "laying over",
+                                row['stop_id'],
+                                rname,
+                                dirid,
+                                row['stop_id']
+                            )
+                        return (
+                            "running route",
+                            "traveling between stops",
+                            rname,
+                            dirid,
+                            ""
+                        )
+                    return ("running route", "traveling between stops", rname, dirid, "")
 
         # If we reach here, we might be beyond the last stop's departure_seconds
-        # but still within tstart–tend (which can happen if there's slack time at the end).
-        # We can treat that as either "laying over" or "off-service" at the final stop.
+        # but still within tstart–tend. Treat that as "laying over" at the final stop.
         return ("laying over", end_stp, rname, dirid, end_stp)
 
-    else:
-        # We’re between trips within this block. Determine if it’s a short layover or extended off-service.
-        # 1) Find the trip that ended last
-        # 2) Find the trip that will start next
-        # 3) Evaluate the gap
-        prev_trip = None
-        next_trip = None
+    # We’re between trips within this block. Determine if it’s a short layover or off-service.
+    prev_trip = None
+    next_trip = None
 
-        for i, (tid, tstart, tend, rname, dirid, start_stp, end_stp) in enumerate(trips_info):
-            if tend < current_sec:
-                prev_trip = (tid, tstart, tend, rname, dirid, start_stp, end_stp)
-            if current_sec < tstart and next_trip is None:
-                next_trip = (tid, tstart, tend, rname, dirid, start_stp, end_stp)
-                break
+    for idx, (tid, tstart, tend, rname, dirid, stp_st, stp_end) in enumerate(trips_info):
+        if tend < current_sec:
+            prev_trip = (tid, tstart, tend, rname, dirid, stp_st, stp_end)
+        if current_sec < tstart and next_trip is None:
+            next_trip = (tid, tstart, tend, rname, dirid, stp_st, stp_end)
+            break
 
-        # If there is no previous trip, that means we haven't reached the first trip's start yet
-        if not prev_trip:
-            return ("inactive", "inactive", "", "", "")
+    # If there is no previous trip, that means we haven't reached the first trip's start yet
+    if not prev_trip:
+        return ("inactive", "inactive", "", "", "")
 
-        (ptid, ptstart, ptend, prname, pdirid, pstart_stp, pend_stp) = prev_trip
-        gap_to_next_trip = None
+    (ptid, ptstart, ptend, prname, pdirid, pstart_stp, pend_stp) = prev_trip
+    gap_to_next_trip = None
 
-        if next_trip:
-            (ntid, ntstart, ntend, nrname, ndirid, nstart_stp, nend_stp) = next_trip
-            gap_to_next_trip = ntstart - ptend
+    if next_trip:
+        (ntid, ntstart, ntend, nrname, ndirid, nstart_stp, nend_stp) = next_trip
+        gap_to_next_trip = ntstart - ptend
 
-        # If there's a next trip, check how large the gap is
-        if gap_to_next_trip is not None:
-            if gap_to_next_trip <= layover_threshold * 60:
-                # Bus is presumably laying over at the previous trip's end stop
-                return ("laying over", pend_stp, prname, pdirid, pend_stp)
-            elif gap_to_next_trip <= extended_offservice_threshold * 60:
-                # Gap is bigger than a “short layover” but maybe not truly off the property
-                # Here, we treat it as "off-service"
-                return ("off-service", "inactive", "", "", "")
-            else:
-                # Very large gap
-                return ("off-service", "inactive", "", "", "")
-        else:
-            # No next trip => we are after the last trip, but we’re inside earliest_start..latest_end
-            # This can happen if the last trip ended earlier than the block’s "latest_end"
-            # but GTFS didn’t schedule any more trips in the block.
-            # Usually treat as off-service or layover at final stop:
-            return ("off-service", "inactive", "", "", "")
+    if gap_to_next_trip is not None:
+        if gap_to_next_trip <= layover_threshold * 60:
+            # Bus is presumably laying over at the previous trip's end stop
+            return ("laying over", pend_stp, prname, pdirid, pend_stp)
+        # Gap bigger than short layover => "off-service"
+        return ("off-service", "inactive", "", "", "")
+
+    # No next trip => after the last trip but inside earliest_start..latest_end => off-service
+    return ("off-service", "inactive", "", "", "")
+
 
 ###############################################################################
 # LOADING & PROCESSING GTFS
 ###############################################################################
 
 def load_gtfs_data(gtfs_folder):
-    """Load essential GTFS CSVs into DataFrames."""
+    """
+    Load essential GTFS CSVs into DataFrames.
+
+    Parameters
+    ----------
+    gtfs_folder : str
+        Path to the folder containing the standard GTFS CSV files.
+
+    Returns
+    -------
+    dict of pd.DataFrame
+        Keys are "trips", "stop_times", "routes", "stops", "calendar".
+    """
     required_files = ["trips.txt", "stop_times.txt", "routes.txt", "stops.txt", "calendar.txt"]
     data = {}
     for file in required_files:
@@ -218,16 +259,30 @@ def load_gtfs_data(gtfs_folder):
         if not os.path.exists(path):
             raise FileNotFoundError(f"Required GTFS file not found: {path}")
         print(f"Loading {file}...")
-        data[file.split('.')[0]] = pd.read_csv(path, dtype=str)
+        data[file.split('.', maxsplit=1)[0]] = pd.read_csv(path, dtype=str)
     return data
+
 
 def process_gtfs_data(gtfs_data, whitelisted_service_id, stops_of_interest):
     """
     Build a route->set-of-minutes mapping using minute-by-minute logic.
-    If bus is "dwelling" or "laying over" at stops_of_interest in minute M,
+    If a bus is "dwelling" or "laying over" at stops_of_interest in minute M,
     we mark that minute in route_to_minutes[route_short_name].
-    """
 
+    Parameters
+    ----------
+    gtfs_data : dict of pd.DataFrame
+        The GTFS dataframes (trips, stop_times, routes, stops, calendar).
+    whitelisted_service_id : str
+        The service_id to filter by.
+    stops_of_interest : list of str
+        Stop IDs for which we want to track dwelling/layover minutes.
+
+    Returns
+    -------
+    dict
+        { route_short_name: set_of_active_minutes_at_stops_of_interest }
+    """
     # 1. Filter trips
     trips = gtfs_data['trips']
     trips = trips[trips['service_id'] == whitelisted_service_id]
@@ -242,18 +297,20 @@ def process_gtfs_data(gtfs_data, whitelisted_service_id, stops_of_interest):
     stop_times = stop_times[stop_times['trip_id'].isin(trips['trip_id'])]
     stop_times = stop_times.merge(
         trips[['trip_id', 'route_id', 'route_short_name', 'block_id', 'direction_id']],
-        on='trip_id', how='left'
+        on='trip_id',
+        how='left'
     )
 
     # 4. Convert arrival/departure times
-    stop_times['arrival_seconds']   = stop_times['arrival_time'].apply(time_to_seconds)
+    stop_times['arrival_seconds'] = stop_times['arrival_time'].apply(time_to_seconds)
     stop_times['departure_seconds'] = stop_times['departure_time'].apply(time_to_seconds)
 
     # 5. Next stops
     stop_times.sort_values(['block_id', 'trip_id', 'stop_sequence'], inplace=True)
     stop_times['next_stop_id'] = stop_times.groupby('trip_id')['stop_id'].shift(-1)
     stop_times['next_arrival_seconds'] = stop_times.groupby('trip_id')['arrival_seconds'].shift(-1)
-    stop_times['next_departure_seconds'] = stop_times.groupby('trip_id')['departure_seconds'].shift(-1)
+    stop_times['next_departure_seconds'] = \
+        stop_times.groupby('trip_id')['departure_seconds'].shift(-1)
 
     # 6. Build route->minutes
     route_to_minutes = defaultdict(set)
@@ -264,15 +321,15 @@ def process_gtfs_data(gtfs_data, whitelisted_service_id, stops_of_interest):
         block_segments = stop_times[stop_times['block_id'] == blk].copy()
         if block_segments.empty:
             continue
-        # Gather trip ranges
+
         trips_info = get_trip_ranges_and_ends(block_segments)
         if not trips_info:
             continue
 
-        minSec = min(t[1] for t in trips_info)
-        maxSec = max(t[2] for t in trips_info)
-        start_min = minSec // 60
-        end_min   = maxSec // 60
+        min_sec = min(t[1] for t in trips_info)
+        max_sec = max(t[2] for t in trips_info)
+        start_min = min_sec // 60
+        end_min = max_sec // 60
 
         # Minute-by-minute
         for minute in range(start_min, end_min + 1):
@@ -287,8 +344,9 @@ def process_gtfs_data(gtfs_data, whitelisted_service_id, stops_of_interest):
             if status in ["dwelling at stop", "laying over"] and location in stops_of_interest:
                 route_to_minutes[rname].add(minute)
 
-    print(f"Built route->minutes map using complex logic.")
+    print("Built route->minutes map using complex logic.")
     return dict(route_to_minutes)
+
 
 ###############################################################################
 # CONFLICT & ASSIGNMENT LOGIC
@@ -296,58 +354,92 @@ def process_gtfs_data(gtfs_data, whitelisted_service_id, stops_of_interest):
 
 def build_default_assignments(route_to_minutes, bay_labels):
     """
-    A trivial "default" assignment, e.g. round-robin each route among the available bays.
+    A trivial "default" assignment: round-robin each route among the available bays.
+
+    Parameters
+    ----------
+    route_to_minutes : dict
+        {route_short_name: set_of_active_minutes_at_stops_of_interest}
+    bay_labels : list of str
+        The bays we have available.
+
+    Returns
+    -------
+    dict
+        { route_short_name: bay_label }
     """
     default_assignment = {}
     route_ids = sorted(route_to_minutes.keys())
-    i = 0
-    for r in route_ids:
-        default_assignment[r] = bay_labels[i % len(bay_labels)]
-        i += 1
+    idx = 0
+    for route_id in route_ids:
+        default_assignment[route_id] = bay_labels[idx % len(bay_labels)]
+        idx += 1
     return default_assignment
+
 
 def build_and_solve_ilp(route_to_minutes, bay_labels, stop_ids):
     """
     Standard ILP approach: minimize total conflicts from a bay perspective.
-    We'll still want to compute route-perspective conflict separately.
+
+    Parameters
+    ----------
+    route_to_minutes : dict
+        {route_short_name: set_of_active_minutes}
+    bay_labels : list of str
+        Available bay labels (e.g., ["1001_Bay1", "1002_Bay1"]).
+    stop_ids : list of str
+        The stop IDs being examined (for printing/logging).
+
+    Returns
+    -------
+    tuple
+        (assignments, total_conflicts_bay_perspective)
+        Where assignments = { route_short_name: bay_label }
     """
     print(f"\nOptimizing Bay Assignments for Stops: {stop_ids}")
     model = pulp.LpProblem("BusBayAssignment", pulp.LpMinimize)
 
     route_ids = sorted(route_to_minutes.keys())
 
-    # x_{r,b} = 1 if route r assigned to bay b
-    x = {}
-    for r in route_ids:
-        for b in bay_labels:
-            sr = re.sub(r'[^A-Za-z0-9]', '_', r)
-            sb = re.sub(r'[^A-Za-z0-9]', '_', b)
-            x[(r, b)] = pulp.LpVariable(f"x_{sr}_{sb}", cat=pulp.LpBinary)
+    # x_{route,bay} = 1 if route assigned to bay
+    assignment_vars = {}
+    for route_id in route_ids:
+        for bay in bay_labels:
+            sanitized_route = re.sub(r'[^A-Za-z0-9]', '_', route_id)
+            sanitized_bay = re.sub(r'[^A-Za-z0-9]', '_', bay)
+            assignment_vars[(route_id, bay)] = pulp.LpVariable(
+                f"x_{sanitized_route}_{sanitized_bay}",
+                cat=pulp.LpBinary
+            )
 
     # Each route must be assigned to exactly one bay
-    for r in route_ids:
+    for route_id in route_ids:
         model += (
-            pulp.lpSum([x[(r, b)] for b in bay_labels]) == 1,
-            f"OneBayPerRoute_{r}"
+            pulp.lpSum([assignment_vars[(route_id, bay)] for bay in bay_labels]) == 1,
+            f"OneBayPerRoute_{route_id}"
         )
 
-    # z_{b,m} = how many overlapping routes are present at bay b, minus 1
-    z = {}
+    # z_{bay,minute} = how many overlapping routes are present at bay, minus 1
+    conflict_vars = {}
     all_minutes = sorted({m for mins in route_to_minutes.values() for m in mins})
-    for b in bay_labels:
-        for m in all_minutes:
-            active_routes = [r for r in route_ids if m in route_to_minutes[r]]
+    for bay in bay_labels:
+        for minute in all_minutes:
+            active_routes = [r for r in route_ids if minute in route_to_minutes[r]]
             if active_routes:
-                var_name = f"z_{re.sub(r'[^A-Za-z0-9]', '_', b)}_{m}"
-                z[(b, m)] = pulp.LpVariable(var_name, lowBound=0, cat=pulp.LpInteger)
-
+                var_name = f"z_{re.sub(r'[^A-Za-z0-9]', '_', bay)}_{minute}"
+                conflict_vars[(bay, minute)] = pulp.LpVariable(
+                    var_name,
+                    lowBound=0,
+                    cat=pulp.LpInteger
+                )
                 model += (
-                    z[(b, m)] >= pulp.lpSum([x[(r, b)] for r in active_routes]) - 1,
-                    f"ConflictMin_z_{b}_{m}"
+                    conflict_vars[(bay, minute)] >=
+                    pulp.lpSum([assignment_vars[(r, bay)] for r in active_routes]) - 1,
+                    f"ConflictMin_z_{bay}_{minute}"
                 )
 
-    # Minimize sum of z_{b,m} across all bays/minutes
-    model += pulp.lpSum(z.values()), "TotalConflictMinutes"
+    # Minimize sum of z_{bay,minute} across all bays/minutes
+    model += pulp.lpSum(conflict_vars.values()), "TotalConflictMinutes"
 
     solver = pulp.PULP_CBC_CMD(msg=True)
     result = model.solve(solver)
@@ -360,43 +452,69 @@ def build_and_solve_ilp(route_to_minutes, bay_labels, stop_ids):
 
     assignment = {}
     if pulp.LpStatus[result] == 'Optimal':
-        for r in route_ids:
-            for b in bay_labels:
-                if pulp.value(x[(r, b)]) > 0.5:
-                    assignment[r] = b
+        for route_id in route_ids:
+            for bay in bay_labels:
+                if pulp.value(assignment_vars[(route_id, bay)]) > 0.5:
+                    assignment[route_id] = bay
                     break
         return assignment, pulp.value(model.objective)
-    else:
-        return {r: "Unassigned" for r in route_ids}, None
+
+    return {r: "Unassigned" for r in route_ids}, None
+
 
 def evaluate_conflicts_per_route(route_to_minutes, assignments):
     """
-    From the ROUTE perspective:
-      For each route r, how many minutes is it in conflict?
-      If route r is in bay B at minute m, and at least 1 other route is also in B at minute m,
-      route r is in conflict for that minute.
+    From the ROUTE perspective, count conflicts for each route.
 
-    Returns {route: conflict_minutes}.
+    If route R is in bay B at minute M, and at least one other route is also
+    in B at minute M, then route R is in conflict for that minute.
+
+    Parameters
+    ----------
+    route_to_minutes : dict
+        {route_short_name: set_of_active_minutes}
+    assignments : dict
+        {route_short_name: bay_label}
+
+    Returns
+    -------
+    dict
+        {route_short_name: conflict_minutes}
     """
-    # Build a bay->minute->list-of-routes mapping
+    # Build bay->minute->list-of-routes
     bay_to_minute_routes = defaultdict(lambda: defaultdict(list))
-    for r, bay in assignments.items():
-        for m in route_to_minutes[r]:
-            bay_to_minute_routes[bay][m].append(r)
+    for route_id, bay_assigned in assignments.items():
+        for minute in route_to_minutes[route_id]:
+            bay_to_minute_routes[bay_assigned][minute].append(route_id)
 
     # For each route, count how many of its active minutes are in conflict
     route_conflicts = defaultdict(int)
-    for r, bay in assignments.items():
-        for m in route_to_minutes[r]:
-            overlap = bay_to_minute_routes[bay][m]
+    for route_id, bay_assigned in assignments.items():
+        for minute in route_to_minutes[route_id]:
+            overlap = bay_to_minute_routes[bay_assigned][minute]
             if len(overlap) > 1:
-                route_conflicts[r] += 1
+                route_conflicts[route_id] += 1
     return dict(route_conflicts)
+
 
 def rebuild_bay_schedules(route_to_minutes, assignments, bay_labels):
     """
     Return minute-by-minute schedules (DataFrame per bay) indicating
-    routes present and the conflict count in each minute.
+    which routes are present and the conflict count in each minute.
+
+    Parameters
+    ----------
+    route_to_minutes : dict
+        {route_short_name: set_of_active_minutes}
+    assignments : dict
+        {route_short_name: bay_label}
+    bay_labels : list of str
+        The list of bays to use.
+
+    Returns
+    -------
+    dict
+        {bay_label: DataFrame}
     """
     if route_to_minutes:
         max_minute = max(m for mins in route_to_minutes.values() for m in mins)
@@ -404,14 +522,14 @@ def rebuild_bay_schedules(route_to_minutes, assignments, bay_labels):
         max_minute = 0
 
     revised_bay_schedules = {}
-    for b in bay_labels:
-        routes_in_bay = [r for r, assigned_bay in assignments.items() if assigned_bay == b]
+    for bay in bay_labels:
+        routes_in_bay = [r for r, assigned_bay in assignments.items() if assigned_bay == bay]
 
-        # Pre-build a dict minute -> which routes are present
+        # Pre-build a dict: minute -> which routes are present
         minute_to_routes = defaultdict(list)
-        for r in routes_in_bay:
-            for m in route_to_minutes[r]:
-                minute_to_routes[m].append(r)
+        for route_id in routes_in_bay:
+            for minute in route_to_minutes[route_id]:
+                minute_to_routes[minute].append(route_id)
 
         records = []
         for minute in range(0, max_minute + 1):
@@ -428,9 +546,10 @@ def rebuild_bay_schedules(route_to_minutes, assignments, bay_labels):
             })
 
         bay_df = pd.DataFrame(records)
-        revised_bay_schedules[b] = bay_df
+        revised_bay_schedules[bay] = bay_df
 
     return revised_bay_schedules
+
 
 ###############################################################################
 # NEW: EXPORT COMPARISON RESULTS
@@ -447,54 +566,67 @@ def export_comparison_results(
     output_filename
 ):
     """
-    Exports an Excel file with:
-      1) A comparison sheet: route-by-route default vs. optimized assignment & conflict minutes.
-      2) A set of sheets for the default minute-by-minute bay schedules.
-      3) A set of sheets for the optimized minute-by-minute bay schedules.
-    """
+    Exports an Excel file comparing default and optimized assignments, plus
+    minute-by-minute schedules for both.
 
-    # Ensure output folder exists
+    Parameters
+    ----------
+    route_to_minutes : dict
+        {route_short_name: set_of_active_minutes}
+    default_assignments : dict
+        {route_short_name: bay_label} for the default approach
+    default_route_conflicts : dict
+        {route_short_name: conflict_minutes}
+    optimized_assignments : dict
+        {route_short_name: bay_label} for the optimized approach
+    optimized_route_conflicts : dict
+        {route_short_name: conflict_minutes}
+    bay_labels : list of str
+        Bays to iterate over
+    output_folder : str
+        Destination folder for the Excel
+    output_filename : str
+        Filename for the Excel
+    """
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
         print(f"Created output folder: {output_folder}")
 
-    # Prepare the route-level comparison DataFrame
+    # Prepare comparison DataFrame
     route_ids = sorted(route_to_minutes.keys())
     comparison_data = []
-    for r in route_ids:
+    for route_id in route_ids:
         comparison_data.append({
-            "route": r,
-            "default_bay": default_assignments[r],
-            "default_conflict_minutes": default_route_conflicts[r],
-            "optimized_bay": optimized_assignments[r],
-            "optimized_conflict_minutes": optimized_route_conflicts[r]
+            "route": route_id,
+            "default_bay": default_assignments[route_id],
+            "default_conflict_minutes": default_route_conflicts[route_id],
+            "optimized_bay": optimized_assignments[route_id],
+            "optimized_conflict_minutes": optimized_route_conflicts[route_id]
         })
     df_comparison = pd.DataFrame(comparison_data)
 
-    # Rebuild schedules for default
+    # Rebuild schedules
     default_schedules = rebuild_bay_schedules(route_to_minutes, default_assignments, bay_labels)
-    # Rebuild schedules for optimized
     optimized_schedules = rebuild_bay_schedules(route_to_minutes, optimized_assignments, bay_labels)
 
-    # Write everything to a single Excel
     output_path = os.path.join(output_folder, output_filename)
     with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
         # 1) Comparison sheet
         df_comparison.to_excel(writer, sheet_name="Assignment_Comparison", index=False)
 
         # 2) Default schedules (one sheet per bay)
-        for b, df_bay in default_schedules.items():
-            sheet_name = f"Default_{b}"
+        for bay_label, bay_df in default_schedules.items():
+            sheet_name = f"Default_{bay_label}"
             if len(sheet_name) > 31:
                 sheet_name = sheet_name[:31]
-            df_bay.to_excel(writer, sheet_name=sheet_name, index=False)
+            bay_df.to_excel(writer, sheet_name=sheet_name, index=False)
 
         # 3) Optimized schedules (one sheet per bay)
-        for b, df_bay in optimized_schedules.items():
-            sheet_name = f"Optimized_{b}"
+        for bay_label, bay_df in optimized_schedules.items():
+            sheet_name = f"Optimized_{bay_label}"
             if len(sheet_name) > 31:
                 sheet_name = sheet_name[:31]
-            df_bay.to_excel(writer, sheet_name=sheet_name, index=False)
+            bay_df.to_excel(writer, sheet_name=sheet_name, index=False)
 
     print(f"\nComparison results exported to: {output_path}\n")
 
@@ -504,6 +636,10 @@ def export_comparison_results(
 ###############################################################################
 
 def main():
+    """
+    Main entry point: load GTFS, process data, build default & optimized assignments,
+    and export comparison results.
+    """
     # 1. Load GTFS
     gtfs_data = load_gtfs_data(CONFIG["gtfs_folder"])
 
@@ -518,8 +654,8 @@ def main():
     bays = []
     for stop_id in CONFIG["stops_of_interest"]:
         num_bays = CONFIG["num_bays_per_stop"].get(stop_id, 1)
-        for i in range(num_bays):
-            bay_label = f"{stop_id}_Bay{i+1}"
+        for idx in range(num_bays):
+            bay_label = f"{stop_id}_Bay{idx+1}"
             bays.append(bay_label)
 
     print(f"\nTotal bays to assign routes to: {len(bays)}")
@@ -530,12 +666,12 @@ def main():
     # -------------------------------------------------------------------------
     default_assignments = build_default_assignments(route_to_minutes, bays)
     default_route_conflicts = evaluate_conflicts_per_route(route_to_minutes, default_assignments)
-    default_total_route_conflict = sum(default_route_conflicts.values())
+    default_total_conflict = sum(default_route_conflicts.values())
 
     print("\nDEFAULT ASSIGNMENT - ROUTE CONFLICTS:")
-    for r in sorted(default_route_conflicts.keys()):
-        print(f"  Route {r} => {default_route_conflicts[r]} conflict minutes")
-    print(f"Total route conflict minutes (Default) = {default_total_route_conflict}")
+    for route_id in sorted(default_route_conflicts.keys()):
+        print(f"  Route {route_id} => {default_route_conflicts[route_id]} conflict minutes")
+    print(f"Total route conflict minutes (Default) = {default_total_conflict}")
 
     # -------------------------------------------------------------------------
     # (B) OPTIMIZED ASSIGNMENT (ILP)
@@ -554,8 +690,8 @@ def main():
     optimized_total_route_conflict = sum(optimized_route_conflicts.values())
 
     print("\nOPTIMIZED ASSIGNMENT - ROUTE CONFLICTS:")
-    for r in sorted(optimized_route_conflicts.keys()):
-        print(f"  Route {r} => {optimized_route_conflicts[r]} conflict minutes")
+    for route_id in sorted(optimized_route_conflicts.keys()):
+        print(f"  Route {route_id} => {optimized_route_conflicts[route_id]} conflict minutes")
     print(f"Total route conflict minutes (Optimized) = {optimized_total_route_conflict}")
 
     # -------------------------------------------------------------------------
@@ -576,14 +712,15 @@ def main():
     # Print final summary
     # -------------------------------------------------------------------------
     print("\nFINAL (OPTIMIZED) ROUTE ASSIGNMENTS:")
-    for r, b in sorted(optimized_assignments.items()):
-        print(f"  Route {r} => {b}")
+    for route_id, bay_label in sorted(optimized_assignments.items()):
+        print(f"  Route {route_id} => {bay_label}")
 
     print("\nTotal conflict minutes (Bay perspective):")
     print(f"  {total_conflicts_bay_perspective} (across all bays)")
 
     print("\nTotal conflict minutes (Route perspective):")
     print(f"  {optimized_total_route_conflict} (sum of route conflict-minutes)")
+
 
 if __name__ == "__main__":
     main()
