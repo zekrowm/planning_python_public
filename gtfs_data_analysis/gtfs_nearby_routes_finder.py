@@ -2,7 +2,7 @@
 # coding: utf-8
 
 """
-Module for analyzing nearby GTFS routes based on manual locations and park-and-ride accessibility.
+Module for identifying and analyzing GTFS routes in proximity to specified manual locations.
 """
 
 import os
