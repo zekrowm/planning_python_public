@@ -2,9 +2,13 @@
 # coding: utf-8
 """
 This script optimizes bus bay assignments by analyzing GTFS data.
-- You can optionally allow each route+direction to have a separate bay
-  or force all directions of the same route into the same bay.
-- Conflict analysis is performed at the block level (each block represents a physical bus).
+It supports two optimization approaches:
+  1) ILP (integer linear programming) using pulp
+  2) Greedy (assign busiest routes first)
+
+A note for users: ILP can become very slow when the number of bays
+and routes becomes large (e.g., >4 bays, >12 routes). For large cases,
+consider using the "greedy" approach for faster run times.
 """
 
 import os
@@ -30,8 +34,8 @@ CONFIG = {
     "output_folder": r"C:\Your\Folder\Path\for\Output",
     "comparison_output_filename": "BayAssignment_Comparison.xlsx",
     "extended_offservice_threshold": 60,  # in minutes
-    "allow_splitting_by_direction": True  # Toggle True to allow route assignment to multiple bays
-                                          # Toggle False to assign both route directions together
+    "allow_splitting_by_direction": True, # True => route-direction separate, False => same bay
+    "optimization_approach": "ilp"       # "ilp" or "greedy"
 }
 
 LAYOVER_THRESHOLD = 15  # in minutes
@@ -126,7 +130,7 @@ def get_minute_status_location_complex(
             if pd.notnull(next_arr):
                 narr_sec = int(next_arr)
                 if dep_sec < current_sec < narr_sec:
-                    # Could be traveling or a short layover
+                    # Could be traveling or short layover
                     if next_stp == row['stop_id']:
                         gap = narr_sec - dep_sec
                         if gap > layover_threshold * 60:
@@ -137,7 +141,7 @@ def get_minute_status_location_complex(
         # If we reach here, we might be beyond the last stop's departure_seconds
         return ("laying over", end_stp, rname, dirid, end_stp)
 
-    # We’re between trips within this block. Determine short layover vs off-service
+    # We’re between trips in this block. Determine short layover vs off-service
     prev_trip = None
     next_trip = None
     for idx, (tid, tstart, tend, rname, dirid, stp_st, stp_end) in enumerate(trips_info):
@@ -191,15 +195,14 @@ def build_occupancy(block_segments, stops_of_interest, split_by_direction=False)
     """
     Build a dictionary for occupancy:
         - Key = route_short_name  OR  (route_short_name, direction_id)
-        - Value = {minute: occupant_count} # occupant_count = # of buses at that minute
+        - Value = {minute: occupant_count}
     
-    If split_by_direction=True, we use (route, direction_id) as the key,
+    If split_by_direction=True, we use (route_short_name, direction_id) as the key,
     otherwise just the route_short_name alone.
     """
     occupancy = defaultdict(lambda: defaultdict(int))
 
     blocks = block_segments['block_id'].unique()
-
     for blk in blocks:
         block_data = block_segments[block_segments['block_id'] == blk].copy()
         if block_data.empty:
@@ -221,13 +224,12 @@ def build_occupancy(block_segments, stops_of_interest, split_by_direction=False)
             if status in ["dwelling at stop", "laying over"] and location in stops_of_interest:
                 if rname:
                     if split_by_direction and dirid in ['0', '1', 0, 1]:
-                        # Make sure we handle direction_id as int or string consistently
                         direction_str = str(dirid)
                         occupancy[(rname, direction_str)][minute] += 1
                     else:
                         occupancy[rname][minute] += 1
 
-    # Convert inner defaultdicts to normal dicts
+    # Convert to normal dicts
     occupancy = {k: dict(v) for k, v in occupancy.items()}
     return occupancy
 
@@ -238,8 +240,6 @@ def build_occupancy(block_segments, stops_of_interest, split_by_direction=False)
 def build_default_assignments(occupancy_dict, bay_labels):
     """
     A trivial "default" assignment: round-robin each key among the available bays.
-
-    occupancy_dict keys = either route_short_name or (route_short_name, direction_id).
     """
     default_assignment = {}
     all_keys = sorted(occupancy_dict.keys(), key=lambda x: str(x))
@@ -257,7 +257,7 @@ def build_default_assignments(occupancy_dict, bay_labels):
 def build_and_solve_ilp(occupancy_dict, bay_labels, stop_ids, problem_name="BayAssignment"):
     """
     ILP: Assign exactly one bay to each key in occupancy_dict.
-    conflict counted using occupant presence across minutes.
+    Minimize total conflicts across minutes.
 
     occupancy_dict:
       { key -> { minute -> occupant_count } }
@@ -266,7 +266,7 @@ def build_and_solve_ilp(occupancy_dict, bay_labels, stop_ids, problem_name="BayA
     print(f"\n=== ILP: {problem_name} ===")
     print(f"Stops of interest = {stop_ids}")
 
-    # 1) Gather all keys and all relevant minutes
+    # 1) Gather all keys and minutes
     all_keys = sorted(occupancy_dict.keys(), key=lambda x: str(x))
     all_minutes = sorted({m for occ in occupancy_dict.values() for m in occ.keys()})
 
@@ -302,22 +302,20 @@ def build_and_solve_ilp(occupancy_dict, bay_labels, stop_ids, problem_name="BayA
                 for k in all_keys
             )
 
-            # z_{bay, minute} >= occupant_expr - 1
             model += (
                 z[(bay, minute)] >= occupant_expr - 1,
                 f"ConflictMin_{bay}_{minute}"
             )
 
-    # Objective: minimize the sum of z_{bay,minute}
+    # Objective: minimize sum of z_{bay,minute}
     model += lpSum(z.values()), "TotalConflicts"
 
     # 3) Solve
     solver = pulp.PULP_CBC_CMD(msg=True)
     result = model.solve(solver)
-
     print(f" Solve status: {LpStatus[result]}")
     if LpStatus[result] != "Optimal":
-        print(" Optimization was not successful.")
+        print(" Optimization was not successful (not optimal or infeasible).")
         return {}, None
 
     total_conflicts = value(model.objective)
@@ -336,6 +334,52 @@ def build_and_solve_ilp(occupancy_dict, bay_labels, stop_ids, problem_name="BayA
     return assignments, total_conflicts
 
 ###############################################################################
+# GREEDY: ASSIGN ONE BAY PER KEY (LARGEST FIRST)
+###############################################################################
+
+def build_and_solve_greedy(occupancy_dict, bay_labels):
+    """
+    A simple greedy approach to assign one bay per key.
+    Strategy:
+      1) Sort all keys by total occupant-minutes (descending).
+      2) For each key in that order, assign it to the bay that yields the smallest
+         incremental conflict.
+      3) Return the final assignments & total conflict minutes.
+    """
+    all_keys = list(occupancy_dict.keys())
+
+    # Sort "largest first" by sum of occupant-minutes
+    def total_occupancy(k):
+        return sum(occupancy_dict[k].values())
+    all_keys.sort(key=total_occupancy, reverse=True)
+
+    assignments = {}
+    best_total_conflicts = 0
+
+    for key in all_keys:
+        best_bay = None
+        best_conflicts_sum = None
+
+        for bay in bay_labels:
+            # Try assigning current key to this bay
+            temp_assignments = assignments.copy()
+            temp_assignments[key] = bay
+
+            # Evaluate conflicts
+            conflicts_dict = evaluate_conflicts(occupancy_dict, temp_assignments)
+            conflict_sum = sum(conflicts_dict.values())
+
+            if (best_conflicts_sum is None) or (conflict_sum < best_conflicts_sum):
+                best_conflicts_sum = conflict_sum
+                best_bay = bay
+
+        # Lock in the best bay for this key
+        assignments[key] = best_bay
+        best_total_conflicts = best_conflicts_sum
+
+    return assignments, best_total_conflicts
+
+###############################################################################
 # EVALUATE CONFLICTS
 ###############################################################################
 
@@ -352,11 +396,10 @@ def evaluate_conflicts(occupancy_dict, assignments):
     bay_to_minute_keys = defaultdict(lambda: defaultdict(list))
     for k, bay_assigned in assignments.items():
         for minute, count in occupancy_dict[k].items():
-            # Each 'count' indicates that many buses from key k at minute
             for _ in range(count):
                 bay_to_minute_keys[bay_assigned][minute].append(k)
 
-    # For each key, count how many of its active "bus appearances" are in conflict
+    # For each key, count how many occupant-minutes are in conflict
     key_conflicts = defaultdict(int)
     for k, bay_assigned in assignments.items():
         for minute, count in occupancy_dict[k].items():
@@ -460,7 +503,10 @@ def export_comparison_results(
     default_schedules = rebuild_bay_schedules(occupancy_dict, default_assignments, bay_labels)
     optimized_schedules = rebuild_bay_schedules(occupancy_dict, optimized_assignments, bay_labels)
 
+    # Write out to Excel
+    from openpyxl import Workbook
     output_path = os.path.join(output_folder, output_filename)
+
     with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
         # 1) Comparison sheet
         df_comparison.to_excel(writer, sheet_name="Assignment_Comparison", index=False)
@@ -556,17 +602,29 @@ def main():
     print(f"Total conflict minutes (Default) = {default_total_conflict}")
 
     # -------------------------------------------------------------------------
-    # (B) OPTIMIZED ASSIGNMENT (ILP)
+    # (B) OPTIMIZED ASSIGNMENT: ILP or GREEDY
     # -------------------------------------------------------------------------
-    optimized_assignments, total_conflicts_bay_perspective = build_and_solve_ilp(
-        occupancy_dict,
-        bay_labels,
-        CONFIG["stops_of_interest"],
-        problem_name="OneBayPerKey_BlocksConflict"
-    )
-    if total_conflicts_bay_perspective is None:
-        print("ILP was infeasible or not optimal. Consider adjusting the number of bays.")
-        return
+    approach = CONFIG["optimization_approach"].lower()
+    if approach == "ilp":
+        print("\n=== Using ILP Optimization ===")
+        print("Note: ILP is only recommended for up to ~4 bays / 12 routes. "
+              "Larger instances may be quite slow!")
+        optimized_assignments, total_conflicts_bay_perspective = build_and_solve_ilp(
+            occupancy_dict,
+            bay_labels,
+            CONFIG["stops_of_interest"],
+            problem_name="OneBayPerKey_BlocksConflict"
+        )
+
+        if total_conflicts_bay_perspective is None:
+            print("ILP was infeasible or not optimal. Consider adjusting the number of bays.")
+            return
+    else:
+        print("\n=== Using Greedy Optimization (Largest First) ===")
+        optimized_assignments, total_conflicts_bay_perspective = build_and_solve_greedy(
+            occupancy_dict,
+            bay_labels
+        )
 
     # Evaluate from the perspective of each key
     optimized_conflicts = evaluate_conflicts(occupancy_dict, optimized_assignments)
@@ -576,6 +634,7 @@ def main():
     for k in sorted(optimized_conflicts.keys(), key=lambda x: str(x)):
         print(f"  {k} => {optimized_conflicts[k]} conflict minutes")
     print(f"Total conflict minutes (Optimized) = {optimized_total_conflict}")
+    print(f"(Bay perspective: {total_conflicts_bay_perspective})")
 
     # -------------------------------------------------------------------------
     # (C) EXPORT COMPARISON TO EXCEL
@@ -598,18 +657,6 @@ def main():
     sorted_keys = sorted(optimized_assignments.keys(), key=lambda x: str(x))
     for k in sorted_keys:
         print(f"  {k} => {optimized_assignments[k]}")
-
-    print("\nTotal conflict minutes (Bay perspective):")
-    print(f"  {total_conflicts_bay_perspective} (across all bays)")
-
-    print("\nTotal conflict minutes (Sum across keys):")
-    print(f"  {optimized_total_conflict}")
-
-    # -------------------------------------------------------------------------
-    # (E) OPTIONAL: Build minute-by-minute bay schedules
-    # -------------------------------------------------------------------------
-    final_bay_schedules = rebuild_bay_schedules(occupancy_dict, optimized_assignments, bay_labels)
-    # Already exported in the comparison workbook if desired.
 
     print("\nDone.")
 
