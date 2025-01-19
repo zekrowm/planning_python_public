@@ -240,7 +240,7 @@ def prepare_data(
     Returns (stop_times, stop_name_map, minute_range).
     """
 
-    # 1) Filter by service_id (calendar) if user specified any
+    # 1) Filter by service_id (from calendar.txt) if user specified any
     if service_ids_filter:
         # Validate the user’s requested service IDs
         all_service_ids = set(calendar_df['service_id'].unique())
@@ -251,9 +251,10 @@ def prepare_data(
                 f"{','.join(invalid_requested)}.\n"
                 f"Available: {','.join(all_service_ids)}"
             )
+        # Keep only trips whose service_id is in the filter
         trips_df = trips_df[trips_df['service_id'].isin(service_ids_filter)]
 
-    # 2) Merge route info onto trips
+    # 2) Merge route info onto trips so we have route_short_name available
     trips_df = trips_df.merge(
         routes_df[['route_id', 'route_short_name']],
         on='route_id',
@@ -269,9 +270,16 @@ def prepare_data(
             raise ValueError(
                 "Invalid route_short_name(s): "
                 f"{','.join(invalid_requested)}.\n"
-                f"Available: {','.join(all_route_names)}"
+                f"Available route_short_names: {','.join(all_route_names)}"
             )
-        trips_df = trips_df[trips_df['route_short_name'].isin(route_short_names_filter)]
+
+        # A) Identify all blocks that have at least one trip with a filtered route
+        blocks_for_selected_routes = trips_df[
+            trips_df['route_short_name'].isin(route_short_names_filter)
+        ]['block_id'].dropna().unique()
+
+        # B) Now keep *all* trips that belong to these blocks
+        trips_df = trips_df[trips_df['block_id'].isin(blocks_for_selected_routes)]
 
     # 4) Filter stop_times down to remaining trip_ids
     stop_times_df = stop_times_df[stop_times_df['trip_id'].isin(trips_df['trip_id'])]
@@ -314,6 +322,7 @@ def prepare_data(
     stop_times_df['layover_duration'] = (
         stop_times_df['next_arrival_seconds'] - stop_times_df['departure_seconds']
     )
+    # If layover_duration is negative (time crosses midnight?), add 24 hours
     stop_times_df['layover_duration'] = stop_times_df['layover_duration'].apply(
         lambda x: x + 86400 if (pd.notnull(x) and x < 0) else x
     )
@@ -323,7 +332,7 @@ def prepare_data(
         & (stop_times_df['layover_duration'] > 0)
     )
 
-    # Duplicate layover rows
+    # Duplicate layover rows so they appear as a separate segment
     layovers = stop_times_df[stop_times_df['is_layover']].copy()
     layovers['arrival_seconds'] = layovers['departure_seconds']
     layovers['departure_seconds'] = layovers['next_arrival_seconds']
@@ -333,7 +342,7 @@ def prepare_data(
     stop_times_df = pd.concat([stop_times_df, layovers], ignore_index=True)
     stop_times_df.sort_values(['block_id', 'arrival_seconds'], inplace=True)
 
-    # 10) Create stop_name map
+    # 10) Create a map of stop_id -> stop_name for quick lookups
     stop_name_map = stops_df.set_index('stop_id')['stop_name'].to_dict()
 
     return stop_times_df, stop_name_map, minute_range
