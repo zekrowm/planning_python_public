@@ -1,5 +1,25 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+"""
+GTFS Block Timeline Generator
+
+This script processes General Transit Feed Specification (GTFS) data to create detailed
+minute-by-minute timelines for each transit block. It performs the following steps:
+
+1. **Data Loading**: Imports GTFS files such as stop_times, trips, calendar, stops, and routes.
+2. **Data Preparation**: Applies optional filters for service IDs and route short names, converts
+   time fields to seconds, calculates layover durations, and organizes data for analysis.
+3. **Timeline Generation**: Generates Excel spreadsheets for each block, detailing the block's
+   status (e.g., running, dwelling, laying over) at each minute. If specified, it also organizes
+   these spreadsheets into folders for stops of interest.
+
+**Configuration**:
+- **Input/Output Paths**: Set the directories for input GTFS files and output spreadsheets.
+- **Filters**: Optionally filter data by service IDs, route short names, and specific stops.
+- **Thresholds**: Define layover duration thresholds to identify layover periods.
+
+**Usage**:
+Ensure the GTFS files are placed in the specified input directory and adjust the configuration
+parameters as needed. Run the script to generate detailed block timelines in the output directory.
+"""
 
 import math
 import os
