@@ -9,8 +9,8 @@ transit_planning_with_python/
 │   ├── bus_bay_assignment_ilp.py
 │   └── gtfs_bus_bay_conflict_checker.py
 ├── gtfs_field_resources/
-│   ├── bus_block_exporter.py
-│   ├── bus_block_exporter_printable.py
+│   ├── bus_block_stop_exporter.py
+│   ├── bus_block_timeline_exporter.py
 │   ├── bus_schedule_exporter.py
 │   ├── gtfs_bus_arrivals_checklist_cluster_validation.py
 │   └── gtfs_bus_arrivals_checklist_printable.py
