@@ -1,5 +1,5 @@
 """
-GTFS Bus Arrivals Checklist Cluster Validation
+GTFS Bus Bay Cluster Validation
 
 This module validates GTFS bus arrival data by checking clusters of bus stops for consistency.
 Planners can use this to check proposed field check bus stop clusters or bus bay conflict check clusters.
