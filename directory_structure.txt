@@ -10,11 +10,11 @@ transit_planning_with_python/
 │   └── gtfs_bus_bay_conflict_checker.py
 ├── gtfs_field_resources/
 │   ├── bus_block_exporter.py
+│   ├── bus_schedule_exporter.py
 │   ├── gtfs_bus_arrivals_checklist_cluster_validation.py
 │   ├── gtfs_bus_arrivals_checklist_printable.py
 │   ├── gtfs_stop_boardings_by_route_printable.py
-│   ├── gtfs_timepoints_by_route_printable.py
-│   └── schedule_exporter.py
+│   └── gtfs_timepoints_by_route_printable.py
 ├── gtfs_validation/
 │   ├── gtfs_stop_capitalization_suffix_checker.py
 │   ├── gtfs_stop_road_shp_typo_finder.py
