@@ -234,21 +234,70 @@ def build_occupancy(block_segments, stops_of_interest, split_by_direction=False)
     return occupancy
 
 ###############################################################################
-# DEFAULT ASSIGNMENT (ROUND-ROBIN)
+# DEFAULT ASSIGNMENT (FROM GTFS)
 ###############################################################################
 
-def build_default_assignments(occupancy_dict, bay_labels):
+def build_time_based_assignments(occupancy_dict, bay_labels):
     """
-    A trivial "default" assignment: round-robin each key among the available bays.
-    """
-    default_assignment = {}
-    all_keys = sorted(occupancy_dict.keys(), key=lambda x: str(x))
+    A time-based "default" assignment approach, using actual schedule occupancy:
 
-    idx = 0
-    for key in all_keys:
-        default_assignment[key] = bay_labels[idx % len(bay_labels)]
-        idx += 1
-    return default_assignment
+    1) For each key (route), gather its earliest minute of occupancy.
+    2) Sort routes by that earliest minute.
+    3) For each route in that order:
+       - Find a bay that causes no (or minimal) conflict with already-assigned routes.
+       - Assign the route to that bay.
+    
+    Returns:
+      assignments: dict of { key -> bay_label }
+    """
+    # 1) Identify earliest minute of occupancy for each key
+    #    If a route never occupies the stop, set it to large sentinel so it goes last
+    route_earliest_min = {}
+    for k, minute_dict in occupancy_dict.items():
+        if minute_dict:
+            route_earliest_min[k] = min(minute_dict.keys())
+        else:
+            # If this route doesn't occupy the stop at all
+            route_earliest_min[k] = float('inf')
+    
+    # 2) Sort keys by earliest usage time
+    all_keys_sorted = sorted(occupancy_dict.keys(), key=lambda x: route_earliest_min[x])
+    
+    # Keep track of assignments
+    assignments = {}
+    
+    # Track which keys are in each bay (for conflict checks)
+    # bay_to_keys = {bay_label: set_of_keys_assigned}
+    bay_to_keys = {bay: set() for bay in bay_labels}
+    
+    # Function to compute incremental conflicts if we add 'new_key' into 'candidate_bay'
+    def compute_conflict_if_assigned(new_key, candidate_bay):
+        # Build a temporary assignment for conflict checking
+        temp_assignments = assignments.copy()
+        temp_assignments[new_key] = candidate_bay
+        
+        # Evaluate total conflicts (or just for new_key) using existing evaluate_conflicts
+        conflicts_dict = evaluate_conflicts(occupancy_dict, temp_assignments)
+        # Return the added conflict minutes specifically for new_key
+        return conflicts_dict.get(new_key, 0)
+    
+    # 3) Assign each route to the best bay in ascending time order
+    for key in all_keys_sorted:
+        best_bay = None
+        best_conflict = None
+        
+        for bay in bay_labels:
+            conflict_here = compute_conflict_if_assigned(key, bay)
+            
+            if best_conflict is None or conflict_here < best_conflict:
+                best_conflict = conflict_here
+                best_bay = bay
+        
+        # Finalize the best bay
+        assignments[key] = best_bay
+        bay_to_keys[best_bay].add(key)
+    
+    return assignments
 
 ###############################################################################
 # ILP: ASSIGN ONE BAY PER KEY
@@ -592,7 +641,7 @@ def main():
     # -------------------------------------------------------------------------
     # (A) DEFAULT ASSIGNMENT
     # -------------------------------------------------------------------------
-    default_assignments = build_default_assignments(occupancy_dict, bay_labels)
+    default_assignments = build_time_based_assignments(occupancy_dict, bay_labels)
     default_conflicts = evaluate_conflicts(occupancy_dict, default_assignments)
     default_total_conflict = sum(default_conflicts.values())
 
