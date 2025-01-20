@@ -45,17 +45,10 @@ SIMILARITY_THRESHOLD_NAMES = 70     # For included stops with different names (0
 # NOTE:
 #  - Choose a CRS that is appropriate for your city or region to ensure accurate distance calculations.
 #  - For example:
-#     - Use EPSG:2237 for Texas (NAD83 / Texas South Central Feet).
-#     - Use EPSG:2229 for California (NAD83 / California Zone V Feet).
-#     - Use EPSG:2263 for New York (NAD83 / New York State Plan Feet).
-#     - Use EPSG:2248 for the Metro DC area (NAD83 / Maryland Feet).
-#     - Use EPSG:3435 for the Chicago area (NAD83 / Illinois East Feet).
-#     - Use EPSG:2249 for the Boston area (NAD83 / Massachusetts Mainland Feet).
-#     - Use EPSG:2272 for the Philadelphia area (NAD83 / Pennsylvania South Feet).
 #  - Avoid using Web Mercator (EPSG:3857) for distance calculations, as it distorts distances at certain latitudes.
-#  - The default CRS below is set to NAD83 (EPSG:2263) in feet, suitable for the New York region.
+#  - The default CRS below is set to NAD83 (EPSG:2248) in feet, suitable for the DC region.
 
-DISTANCE_CRS_EPSG = 2263  # NAD83 / New York State Plane (feet)
+DISTANCE_CRS_EPSG = 2248  # NAD83 / Metro DC area (feet)
 
 # ==============================
 # END OF CONFIGURATION SECTION
