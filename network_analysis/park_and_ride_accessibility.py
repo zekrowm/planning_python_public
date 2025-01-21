@@ -139,7 +139,7 @@ def create_transit_network_with_transfers(
         trip_group['departure_seconds'] = trip_group['departure_time'].apply(parse_gtfs_time)
         stops_list = trip_group[['stop_id', 'arrival_seconds',
                                  'departure_seconds']].values
-        
+
         for i, _ in enumerate(stops_list[:-1]):
             start_stop_id, _, start_departure = stops_list[i]
             end_stop_id, end_arrival, _ = stops_list[i + 1]
