@@ -15,7 +15,7 @@ Data Preparation and Visualization
 
 Operational Analysis
 
-- ***Bus Bay Conflict Checker:*** Identify scheduling conflicts at bus bays where multiple buses overlap in time and space.
+- ***Bus Bay Conflict Optimization:*** Identify scheduling conflicts and suggest improved assignments to reduce them.
 - ***Headway and Schedule Analysis:*** Automatically calculate headways, span, and trip frequencies for any schedule.
 
 Fieldwork Tools
