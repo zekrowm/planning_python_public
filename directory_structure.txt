@@ -31,6 +31,5 @@ transit_planning_with_python/
 │   └── gtfs_trip_counts_reporter.py
 ├── service_population_tools/
 │   ├── census_processing_csv_shp.py
-│   ├── gtfs_demogs_served_calcs_network.py
-│   └── gtfs_demogs_served_calcs_routes.py
+│   └── gtfs_demog_calculator.py
 └── directory_structure.txt
