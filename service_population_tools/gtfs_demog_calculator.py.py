@@ -47,7 +47,7 @@ ROUTES_TO_INCLUDE = ["101", "102"]  # e.g. [] for no include filter
 ROUTES_TO_EXCLUDE = ["104"]         # e.g. [] for no exclude filter
 
 # Buffer distance in miles
-BUFFER_DISTANCE = 0.5
+BUFFER_DISTANCE = 0.25
 
 # Optional FIPS filter (list of codes). Empty list = no filter.
 FIPS_FILTER = ["11001"]
