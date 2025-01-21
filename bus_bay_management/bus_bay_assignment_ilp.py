@@ -196,7 +196,7 @@ def build_occupancy(block_segments, stops_of_interest, split_by_direction=False)
     Build a dictionary for occupancy:
         - Key = route_short_name  OR  (route_short_name, direction_id)
         - Value = {minute: occupant_count}
-    
+
     If split_by_direction=True, we use (route_short_name, direction_id) as the key,
     otherwise just the route_short_name alone.
     """
@@ -246,7 +246,7 @@ def build_time_based_assignments(occupancy_dict, bay_labels):
     3) For each route in that order:
        - Find a bay that causes no (or minimal) conflict with already-assigned routes.
        - Assign the route to that bay.
-    
+
     Returns:
       assignments: dict of { key -> bay_label }
     """
@@ -259,44 +259,44 @@ def build_time_based_assignments(occupancy_dict, bay_labels):
         else:
             # If this route doesn't occupy the stop at all
             route_earliest_min[k] = float('inf')
-    
+
     # 2) Sort keys by earliest usage time
     all_keys_sorted = sorted(occupancy_dict.keys(), key=lambda x: route_earliest_min[x])
-    
+
     # Keep track of assignments
     assignments = {}
-    
+
     # Track which keys are in each bay (for conflict checks)
     # bay_to_keys = {bay_label: set_of_keys_assigned}
     bay_to_keys = {bay: set() for bay in bay_labels}
-    
+
     # Function to compute incremental conflicts if we add 'new_key' into 'candidate_bay'
     def compute_conflict_if_assigned(new_key, candidate_bay):
         # Build a temporary assignment for conflict checking
         temp_assignments = assignments.copy()
         temp_assignments[new_key] = candidate_bay
-        
+
         # Evaluate total conflicts (or just for new_key) using existing evaluate_conflicts
         conflicts_dict = evaluate_conflicts(occupancy_dict, temp_assignments)
         # Return the added conflict minutes specifically for new_key
         return conflicts_dict.get(new_key, 0)
-    
+
     # 3) Assign each route to the best bay in ascending time order
     for key in all_keys_sorted:
         best_bay = None
         best_conflict = None
-        
+
         for bay in bay_labels:
             conflict_here = compute_conflict_if_assigned(key, bay)
-            
+
             if best_conflict is None or conflict_here < best_conflict:
                 best_conflict = conflict_here
                 best_bay = bay
-        
+
         # Finalize the best bay
         assignments[key] = best_bay
         bay_to_keys[best_bay].add(key)
-    
+
     return assignments
 
 ###############################################################################
