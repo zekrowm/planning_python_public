@@ -101,7 +101,7 @@ Jupyter Notebook is a powerful tool for running Python scripts in an interactive
 2. **Install JupyterLab and Required Libraries**
    - Open the Command Prompt (search for "cmd" in your Start menu) and run the following command:
      ```bash
-     pip install jupyterlab pandas geopandas rapidfuzz matplotlib networkx
+     pip install jupyterlab pandas geopandas shapely matplotlib networkx openpyxl rapidfuzz pulp
      ```
    - Wait for the installation to complete. If you see warnings about scripts not being on the PATH, don't worry - you can still use these tools.
 
