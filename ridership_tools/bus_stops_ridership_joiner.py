@@ -50,7 +50,7 @@ BLOCKS_WITH_RIDERSHIP_SHP = os.path.join(
 
 # For ridership data, Excel contains STOP_ID, STOP_NAME, XBOARDINGS, XALIGHTINGS.
 # The final output expects a consistent set of fields. We'll standardize to "stop_code" for GTFS
-# and "StopId" for shapefile. Ultimately, we need a common join key. 
+# and "StopId" for shapefile. Ultimately, we need a common join key.
 # For this example, let's assume:
 # - GTFS: We'll join on stop_code
 # - Shapefile: We'll join on StopId
