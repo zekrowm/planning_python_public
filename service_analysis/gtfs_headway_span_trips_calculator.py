@@ -196,10 +196,12 @@ def find_large_break(trip_times):
 
 def calculate_trip_times(group):
     """
-    Calculate first and last trip times, AM/PM trip times, and the number of trips based on trip schedule.
+    Calculate first and last trip times, AM/PM trip times, and the number of trips
+    based on trip schedule.
 
     Args:
-        group (pd.DataFrame): A DataFrame group containing departure times for a route and direction.
+        group (pd.DataFrame): A DataFrame group containing departure times for
+        a route and direction.
 
     Returns:
         pd.Series: A series with calculated trip times and trip count.
