@@ -177,7 +177,7 @@ for schedule_name, days in SCHEDULE_TYPES.items():
             '________'
         )
         cluster_data.insert(
-            cluster_data.columns.get_loc('departure_time') + 1, 
+            cluster_data.columns.get_loc('departure_time') + 1,
             'act_departure',
             '________'
         )
