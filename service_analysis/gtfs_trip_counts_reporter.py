@@ -118,7 +118,10 @@ def get_time_bin(t, interval):
     return f"{str(start_hour).zfill(2)}:{str(start_min).zfill(2)}-{str(end_hour).zfill(2)}:{str(end_min).zfill(2)}"
 
 def process_and_export(data, route_dirs, output_path, interval_minutes, calendar_filter_days):
-    """Process the GTFS data and export trips per specified interval to individual Excel files for each route."""
+    """
+    Process the GTFS data and export trips per specified interval to
+    individual Excel files for each route.
+    """
     trips = data['trips']
     stop_times = data['stop_times']
     routes = data['routes']
