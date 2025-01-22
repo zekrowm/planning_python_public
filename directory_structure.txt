@@ -24,7 +24,8 @@ transit_planning_with_python/
 │   └── stop_spacing_calculator.py
 ├── ridership_tools/
 │   ├── bus_stops_ridership_joiner.py
-│   └── ridership_by_route_and_stop_processor.py
+│   ├── ridership_by_route_and_stop_processor.py
+│   └── weather_data_processor.py
 ├── service_analysis/
 │   ├── gtfs_headway_span_trips_calculator.py
 │   ├── gtfs_nearby_routes_finder.py
