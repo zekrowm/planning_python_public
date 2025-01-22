@@ -105,14 +105,13 @@ Jupyter Notebook is a powerful tool for running Python scripts in an interactive
      ```
    - Wait for the installation to complete. If you see warnings about scripts not being on the PATH, don't worry - you can still use these tools.
 
-4. **Launch JupyterLab**
-   - After installation, you can open JupyterLab in two ways:
-      -    "From your Start menu:" Search for "JupyterLab" and open it like any other program on your computer. This will launch your default browser with the Jupyter interface.
-      -    "From the Command Prompt:" Type the following command and press Enter:
+3. **Launch JupyterLab**
+   - After installation, search for "Command Prompt" and open it like any other program on your computer.
+   - From the Command Prompt, type the following into the Command command and press Enter:
      ```bash
      jupyter lab
      ```
-   - Once you have JupyterLab open, you can browse your local files and create new notebook files.
+   - Once you have JupyterLab open in your web browser, you can browse your local files and create new notebook files.
 
 4. **Get the Script(s) You Need**
    - Navigate to scripts that are useful to you and your agency. Then copy and paste their contents into an active notebook file or download them as .py files. You do not need a        GitHub account to do this.
