@@ -214,4 +214,7 @@ We welcome your contributions! Feel free to open an issue or submit a pull reque
 
 ## 📄 License
 
+This repository is licensed under the [GNU General Public License v3.0](https://choosealicense.com/licenses/gpl-3.0/).
+You are free to use, modify, and distribute the tools within this repository, as long as you adhere to the license terms.
+
 We hope these tools speed up and simplify your transit planning workflows! If you encounter issues or have questions, feel free to open an issue or contact us. 🚍
