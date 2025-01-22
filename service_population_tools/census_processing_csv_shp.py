@@ -14,7 +14,10 @@ This script processes census data by performing the following operations:
 
 Configuration:
 - Customize the full file paths in the configuration section below.
-- JT00, P1, H9, and .shp files are mandatory.
+- JT00, P1, H9, and .shp files are mandatory. They can be found here:
+  - https://lehd.ces.census.gov/data/
+  - https://data.census.gov/table
+  - https://www.census.gov/cgi-bin/geo/shapefiles/index.php
 - Other tables are optional depending on the detailed information you are interested in.
 - Output configuration is consolidated at the end of the config section.
 """
