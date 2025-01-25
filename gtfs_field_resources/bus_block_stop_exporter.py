@@ -1,4 +1,3 @@
-
 """
 GTFS Block Schedule Printable
 
