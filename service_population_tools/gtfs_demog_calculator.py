@@ -177,27 +177,30 @@ def clip_and_calculate_synthetic_fields(
 ) -> gpd.GeoDataFrame:
     """
     Clip demographics_gdf with the buffer geometry and calculate synthetic fields.
-
-    :param demographics_gdf: Original demographic polygons (already projected).
-    :param buffer_gdf: A dissolved buffer (e.g., for one route or entire network).
-    :param synthetic_fields: Columns to multiply by area ratio for synthetic sums.
-    :return: A clipped GeoDataFrame with new synthetic columns.
+    Correctly computes the area percentage based on original polygon areas.
     """
+
+    # Step 1: Ensure we have an "original area" column
+    if "area_ac_og" not in demographics_gdf.columns:
+        demographics_gdf["area_ac_og"] = demographics_gdf.geometry.area / 4046.86  # Convert to acres
+
+    # Step 2: Clip the demographics GeoDataFrame with the buffer GeoDataFrame
     clipped_gdf = gpd.clip(demographics_gdf, buffer_gdf)
 
-    clipped_gdf["area_ac_og"] = clipped_gdf.geometry.area / 4046.86
-    clipped_gdf["area_ac_cl"] = clipped_gdf.geometry.area / 4046.86
-    clipped_gdf["area_perc"] = (
-        clipped_gdf["area_ac_cl"] / clipped_gdf["area_ac_og"]
-    )
+    # Step 3: Compute clipped area and area percentage
+    clipped_gdf["area_ac_cl"] = clipped_gdf.geometry.area / 4046.86  # Clipped area in acres
+    clipped_gdf["area_perc"] = clipped_gdf["area_ac_cl"] / clipped_gdf["area_ac_og"]
 
+    # Handle cases where original area is zero to avoid division by zero
+    clipped_gdf["area_perc"].replace([float('inf'), -float('inf')], 0, inplace=True)
+    clipped_gdf["area_perc"].fillna(0, inplace=True)
+
+    # Step 4: Apply partial weighting to synthetic fields
     for field in synthetic_fields:
-        clipped_gdf[field] = pd.to_numeric(
-            clipped_gdf[field], errors="coerce"
-        ).fillna(0)
-        clipped_gdf[f"synthetic_{field}"] = (
-            clipped_gdf["area_perc"] * clipped_gdf[field]
-        )
+        # Ensure the field is numeric; non-numeric values are set to 0
+        clipped_gdf[field] = pd.to_numeric(clipped_gdf[field], errors="coerce").fillna(0)
+        # Calculate synthetic field based on area percentage
+        clipped_gdf[f"synthetic_{field}"] = clipped_gdf["area_perc"] * clipped_gdf[field]
 
     return clipped_gdf
 
