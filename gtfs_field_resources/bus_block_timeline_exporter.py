@@ -31,14 +31,8 @@ import pandas as pd
 # ================================
 # CONFIGURATION
 # ================================
-BASE_INPUT_PATH = (
-    r"C:\Path\To\Your\Input"
-    r"\Folder"
-)  # Replace with your folder path
-BASE_OUTPUT_PATH = (
-    r"C:\Path\To\Your\Output"
-    r"\Folder"
-)  # Replace with your folder path
+BASE_INPUT_PATH = r"C:\Path\To\Your\Input\Folder"    # <<< EDIT HERE
+BASE_OUTPUT_PATH = r"C:\Path\To\Your\Output\Folder"  # <<< EDIT HERE
 
 STOP_TIMES_FILE = "stop_times.txt"
 TRIPS_FILE = "trips.txt"
@@ -58,6 +52,14 @@ STOPS_OF_INTEREST = ['1001', '1002']  # e.g. ['1001', '1002'] or []
 # ================================
 # HELPER FUNCTIONS
 # ================================
+def validate_paths(input_path, output_path):
+    if not os.path.isdir(input_path):
+        raise NotADirectoryError(f"Input path does not exist or is not a directory: {input_path}")
+    if not os.path.isdir(output_path):
+        os.makedirs(output_path, exist_ok=True)
+        print(f"Created output directory: {output_path}")
+
+
 def time_to_seconds(time_str):
     """Convert HH:MM:SS time format to total seconds."""
     hours, minutes, seconds = map(int, time_str.split(':'))
@@ -451,35 +453,54 @@ def generate_block_spreadsheets(
 # MAIN EXECUTION
 # ================================
 def main():
-    os.makedirs(BASE_OUTPUT_PATH, exist_ok=True)
+    # Validate input and output paths
+    try:
+        validate_paths(BASE_INPUT_PATH, BASE_OUTPUT_PATH)
+    except Exception as e:
+        print(f"Path validation error: {e}")
+        return
 
     # 1) LOAD DATA
-    (
-        calendar_df,
-        trips_df,
-        stop_times_df,
-        stops_df,
-        routes_df,
-    ) = load_data(
-        BASE_INPUT_PATH,
-        STOP_TIMES_FILE,
-        TRIPS_FILE,
-        CALENDAR_FILE,
-        STOPS_FILE,
-        ROUTES_FILE,
-    )
+    try:
+        (
+            calendar_df,
+            trips_df,
+            stop_times_df,
+            stops_df,
+            routes_df,
+        ) = load_data(
+            BASE_INPUT_PATH,
+            STOP_TIMES_FILE,
+            TRIPS_FILE,
+            CALENDAR_FILE,
+            STOPS_FILE,
+            ROUTES_FILE,
+        )
+    except FileNotFoundError as e:
+        print(f"File not found: {e}")
+        return
+    except Exception as e:
+        print(f"Error reading GTFS files: {e}")
+        return
 
     # 2) PREPARE DATA (with optional filters)
-    stop_times, stop_name_map, minute_range = prepare_data(
-        calendar_df,
-        trips_df,
-        stop_times_df,
-        stops_df,
-        routes_df,
-        FILTER_SERVICE_IDS,
-        FILTER_ROUTE_SHORT_NAMES,
-        LAYOVER_THRESHOLD,
-    )
+    try:
+        stop_times, stop_name_map, minute_range = prepare_data(
+            calendar_df,
+            trips_df,
+            stop_times_df,
+            stops_df,
+            routes_df,
+            FILTER_SERVICE_IDS,
+            FILTER_ROUTE_SHORT_NAMES,
+            LAYOVER_THRESHOLD,
+        )
+    except ValueError as e:
+        print(f"Data preparation error: {e}")
+        return
+    except Exception as e:
+        print(f"Unexpected error during data preparation: {e}")
+        return
 
     # 3) (Optional) Print Unique Block IDs
     unique_block_ids = stop_times['block_id'].dropna().unique()
