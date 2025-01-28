@@ -423,9 +423,10 @@ def export_to_excel_multiple_sheets(df_dict, output_file):
                 # Get the column letter
                 col_letter = get_column_letter(col_num)
 
-                # Set alignment to left and enable text wrapping for the header
+                # Set alignment to left and enable text wrapping for the header,
+                # but also align vertically to the top (or center, if you prefer).
                 header_cell = worksheet[f'{col_letter}1']
-                header_cell.alignment = Alignment(horizontal='left', wrap_text=True)
+                header_cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
 
                 # Set alignment to left for all data cells in the column
                 for row_num in range(2, worksheet.max_row + 1):
@@ -446,6 +447,7 @@ def export_to_excel_multiple_sheets(df_dict, output_file):
                 worksheet.column_dimensions[col_letter].width = adjusted_width
 
     print(f"Data exported to {output_file}")
+
 
 # ==============================
 # MAIN SCRIPT LOGIC
