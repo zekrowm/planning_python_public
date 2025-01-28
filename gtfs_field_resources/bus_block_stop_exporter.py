@@ -257,7 +257,7 @@ def main():
         # Step D: Sort properly for readability
         # Already sorted by (block, trip, stop_sequence), but sort again by (Trip Start Time, Trip ID, Stop Sequence)
         final_df.sort_values(
-            by=['Trip Start Time','Trip ID','Stop Sequence'], 
+            by=['Trip Start Time','Trip ID','Stop Sequence'],
             inplace=True
         )
 
