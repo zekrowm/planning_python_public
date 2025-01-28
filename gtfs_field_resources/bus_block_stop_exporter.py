@@ -12,6 +12,7 @@ Each table includes:
 - Trip ID
 - Trip Start Time
 - Stop Sequence
+- Timepoint
 - Stop ID
 - Stop Name
 - Scheduled Time
@@ -178,6 +179,14 @@ def main():
     # 5) Filter stop_times to only include trips in trips_df
     stop_times_df = stop_times_df[ stop_times_df['trip_id'].isin(trips_df['trip_id']) ]
 
+    # --- NEW: Handle the `timepoint` column. ---
+    # If 'timepoint' does not exist, create a new column with 0.
+    if 'timepoint' not in stop_times_df.columns:
+        stop_times_df['timepoint'] = 0
+    else:
+        # Convert to numeric, fill NaN with 0
+        stop_times_df['timepoint'] = pd.to_numeric(stop_times_df['timepoint'], errors='coerce').fillna(0).astype(int)
+
     # 6) Merge essential trip columns into stop_times
     needed_trip_cols = ['trip_id', 'block_id', 'route_short_name', 'direction_id']
     stop_times_df = stop_times_df.merge(
@@ -232,6 +241,7 @@ def main():
             'trip_id',
             'Trip Start Time',
             'stop_sequence',
+            'timepoint',          # <-- Moved Timepoint here
             'stop_id',
             'stop_name',
             'scheduled_time_hhmm',
@@ -243,6 +253,7 @@ def main():
             'direction_id': 'Direction',
             'trip_id': 'Trip ID',
             'stop_sequence': 'Stop Sequence',
+            'timepoint': 'Timepoint',      # Renamed for clarity
             'stop_id': 'Stop ID',
             'stop_name': 'Stop Name',
             'scheduled_time_hhmm': 'Scheduled Time',
@@ -254,8 +265,25 @@ def main():
         final_df['Alightings']    = MISSING_VALUE
         final_df['Comments']      = MISSING_VALUE
 
+        # Reorder columns to place 'Timepoint' after 'Stop Sequence'
+        final_df = final_df[[
+            'Block ID',
+            'Route',
+            'Direction',
+            'Trip ID',
+            'Trip Start Time',
+            'Stop Sequence',
+            'Timepoint',         # Positioned after Stop Sequence
+            'Stop ID',
+            'Stop Name',
+            'Scheduled Time',
+            'Actual Time',
+            'Boardings',
+            'Alightings',
+            'Comments'
+        ]]
+
         # Step D: Sort properly for readability
-        # Already sorted by (block, trip, stop_sequence), but sort again by (Trip Start Time, Trip ID, Stop Sequence)
         final_df.sort_values(
             by=['Trip Start Time','Trip ID','Stop Sequence'],
             inplace=True
