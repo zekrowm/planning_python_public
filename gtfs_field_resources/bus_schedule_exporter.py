@@ -107,6 +107,21 @@ def time_to_minutes(time_str):
     except Exception:  # Changed bare except to Exception
         return None
 
+def remove_empty_schedule_columns(df):
+    """
+    Drops any columns in df (Schedule columns) that are entirely '---'.
+    """
+    # Identify only the "Schedule" columns in your dataframe
+    schedule_cols = [col for col in df.columns if col.endswith("Schedule")]
+
+    # Find which ones are all '---' in every row
+    all_blank_cols = [col for col in schedule_cols if (df[col] == '---').all()]
+
+    # Drop them (in-place or return a new df, your choice)
+    df.drop(columns=all_blank_cols, inplace=True)
+
+    return df
+
 def check_schedule_order(df, ordered_stop_names, route_short_name, schedule_type, direction_id):
     """
     Checks that times in the DataFrame increase across rows and down columns, ignoring MISSING_TIME or '---'.
@@ -270,19 +285,24 @@ def process_trips_for_direction(
     Checks for sequential departure times and prints warnings if inconsistencies are found.
     Also performs schedule order checks across rows and columns.
     """
+
+    # If there are no trips in this direction, skip
     if relevant_trips_direction.empty:
         print("Warning: No trips to process for this direction.")
         return pd.DataFrame()
 
+    # Build an index map to quickly find the right column for each stop_sequence
     ordered_stop_ids = unique_stops['stop_id'].tolist()
     ordered_stop_sequences = unique_stops['stop_sequence'].tolist()
     stop_index_map = {seq: i for i, seq in enumerate(ordered_stop_sequences)}
 
     output_data = []
 
+    # Iterate over each trip in the chosen direction
     for trip_id, group in timepoints[
         timepoints['trip_id'].isin(relevant_trips_direction['trip_id'])
     ].groupby('trip_id'):
+        # Pull out info about this trip
         trip_info = relevant_trips_direction[relevant_trips_direction['trip_id'] == trip_id].iloc[0]
         route_name = routes[routes['route_id'] == trip_info['route_id']]['route_short_name'].values[0]
         trip_headsign = trip_info.get('trip_headsign', '')
@@ -290,11 +310,12 @@ def process_trips_for_direction(
         # Initialize the row with route_name, direction_id, trip_headsign
         row = [route_name, trip_info['direction_id'], trip_headsign]
 
-        # Initialize schedule times with MISSING_TIME
+        # Fill schedule times with the placeholder
         schedule_times = [MISSING_TIME] * len(ordered_stop_ids)
         valid_departure_times_24 = []
 
-        for _idx, stop in group.iterrows():  # Rename idx to _idx to avoid W0612
+        # Populate schedule times in the correct columns
+        for _idx, stop in group.iterrows():
             departure_str = stop['departure_time'].strip()
             time_str_display = adjust_time(departure_str, time_format)
             time_str_24 = adjust_time(departure_str, '24')
@@ -319,21 +340,21 @@ def process_trips_for_direction(
                     pd.to_timedelta(t + ':00') for t in valid_departure_times_24
                 ]
                 max_sort_time = max(departure_timedeltas)
-            except Exception as e:  # broad-exception-caught; optionally refine
+            except Exception as e:
                 max_sort_time = pd.to_timedelta('00:00')
                 print(
                     f"Warning: Failed to determine maximum departure time for trip_id '{trip_id}'. "
                     f"Defaulting to '00:00'. Error: {e}"
                 )
         else:
-            # If no valid times, assign a large timedelta to push this trip to the bottom
+            # If no valid times, assign a large timedelta so this trip sorts to the bottom
             max_sort_time = pd.to_timedelta('9999:00:00')
 
         # Add schedule times and the sort time to the row
         row.extend(schedule_times)
         row.append(max_sort_time)
 
-        # Add this trip's data to the output
+        # Append to output_data
         output_data.append(row)
 
         # Check for sequential times within the trip
@@ -344,9 +365,7 @@ def process_trips_for_direction(
                 seconds = total_minutes * 60
                 times_in_seconds.append(seconds)
             else:
-                print(
-                    f"Warning: Failed to parse time '{t_str}' in trip_id '{trip_id}'."
-                )
+                print(f"Warning: Failed to parse time '{t_str}' in trip_id '{trip_id}'.")
 
         for i in range(1, len(times_in_seconds)):
             if times_in_seconds[i] < times_in_seconds[i - 1]:
@@ -357,18 +376,30 @@ def process_trips_for_direction(
                 )
                 break  # Warn once per trip
 
+    # Build column names
     columns = (
         ['Route Name', 'Direction ID', 'Trip Headsign']
         + [f"{sn} Schedule" for sn in ordered_stop_names]
         + ['sort_time']
     )
     df = pd.DataFrame(output_data, columns=columns)
+
+    # Sort by the 'sort_time' column, then remove it
     df = df.sort_values(by='sort_time').drop(columns=['sort_time'])
 
-    # Perform schedule order check
+    # Perform schedule order check across rows & columns
     check_schedule_order(df, ordered_stop_names, route_short_name, schedule_type, direction_id)
 
+    # >>> ADD THIS STEP: Remove columns that are entirely '---'
+    schedule_cols = [col for col in df.columns if col.endswith("Schedule")]
+    all_blank_cols = [col for col in schedule_cols if (df[col] == MISSING_TIME).all()]
+    if all_blank_cols:
+        df.drop(columns=all_blank_cols, inplace=True)
+        print(f"Dropped empty columns for Route '{route_short_name}', "
+              f"Schedule '{schedule_type}', Direction '{direction_id}': {all_blank_cols}")
+
     return df
+
 
 def export_to_excel_multiple_sheets(df_dict, output_file):
     """
