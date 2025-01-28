@@ -5,11 +5,10 @@ This script processes General Transit Feed Specification (GTFS) data to create d
 minute-by-minute timelines for each transit block. It performs the following steps:
 
 1. **Data Loading**: Imports GTFS files such as stop_times, trips, calendar, stops, and routes.
-2. **Data Preparation**: Applies optional filters for service IDs and route short names, converts
-   time fields to seconds, calculates layover durations, and organizes data for analysis.
-3. **Timeline Generation**: Generates Excel spreadsheets for each block, detailing the block's
-   status (e.g., running, dwelling, laying over) at each minute. If specified, it also organizes
-   these spreadsheets into folders for stops of interest.
+2. **Data Preparation**: Applies optional filters for service IDs, route short names, and specific stops of interest,
+   converts time fields to seconds, calculates layover durations, and organizes data for analysis.
+3. **Timeline Generation**: Generates Excel spreadsheets for each filtered block, detailing the block's
+   status (e.g., running, dwelling, laying over) at each minute.
 
 **Configuration**:
 - **Input/Output Paths**: Set the directories for input GTFS files and output spreadsheets.
@@ -233,14 +232,17 @@ def prepare_data(
     service_ids_filter,
     route_short_names_filter,
     layover_threshold,
+    stops_of_interest=None,  # <-- new parameter (default None or [])
 ):
     """
-    Optionally filter data by service_id and/or route_short_name.
+    Optionally filter data by service_id, route_short_name, AND stops_of_interest.
     Then merge relevant columns, calculate times in seconds,
     determine next stops, handle layovers, etc.
 
     Returns (stop_times, stop_name_map, minute_range).
     """
+    if stops_of_interest is None:
+        stops_of_interest = []
 
     # 1) Filter by service_id (from calendar.txt) if user specified any
     if service_ids_filter:
@@ -347,6 +349,15 @@ def prepare_data(
     # 10) Create a map of stop_id -> stop_name for quick lookups
     stop_name_map = stops_df.set_index('stop_id')['stop_name'].to_dict()
 
+    if stops_of_interest:
+        # Find all block_ids that serve at least one of the stops of interest
+        blocks_serving_stops = stop_times_df[
+            stop_times_df['stop_id'].isin(stops_of_interest)
+        ]['block_id'].dropna().unique()
+
+        # Keep only those rows whose block_id is in blocks_serving_stops
+        stop_times_df = stop_times_df[stop_times_df['block_id'].isin(blocks_serving_stops)]
+
     return stop_times_df, stop_name_map, minute_range
 
 
@@ -355,20 +366,13 @@ def generate_block_spreadsheets(
     stop_name_map,
     minute_range,
     layover_threshold,
-    stops_of_interest,
     output_folder,
 ):
     """
-    Create one spreadsheet per block. Copy them into each stop folder
-    if that block serves the stop.
+    Create one spreadsheet per filtered block, detailing the block's status at each minute.
     """
     all_blocks = stop_times['block_id'].dropna().unique()
-    print(f"Generating per-block detailed timeline for {len(all_blocks)} blocks...")
-
-    # If we have stops_of_interest, create subfolders for each
-    if stops_of_interest:
-        for stop_id in stops_of_interest:
-            os.makedirs(os.path.join(output_folder, f"stop_{stop_id}"), exist_ok=True)
+    print(f"Generating detailed timelines for {len(all_blocks)} blocks...")
 
     for block_id in all_blocks:
         block_data = stop_times[stop_times['block_id'] == block_id].copy()
@@ -433,17 +437,6 @@ def generate_block_spreadsheets(
             ]
         ].to_excel(output_file, index=False)
 
-        # Copy the file to each stop folder if block serves that stop
-        if stops_of_interest:
-            stops_in_block = set(block_df['stop_id'].unique())
-            relevant_stops = set(stops_of_interest).intersection(stops_in_block)
-            for stop_id in relevant_stops:
-                stop_folder = os.path.join(output_folder, f"stop_{stop_id}")
-                dest_file = os.path.join(
-                    stop_folder, f"block_{block_id}_detailed.xlsx"
-                )
-                shutil.copyfile(output_file, dest_file)
-
         print(f"Created: {output_file}")
 
     print("Per-block processing completed.")
@@ -494,6 +487,7 @@ def main():
             FILTER_SERVICE_IDS,
             FILTER_ROUTE_SHORT_NAMES,
             LAYOVER_THRESHOLD,
+            stops_of_interest=STOPS_OF_INTEREST  # <-- pass stops_of_interest
         )
     except ValueError as e:
         print(f"Data preparation error: {e}")
@@ -515,7 +509,6 @@ def main():
         stop_name_map,
         minute_range,
         LAYOVER_THRESHOLD,
-        STOPS_OF_INTEREST,
         BASE_OUTPUT_PATH,
     )
 
@@ -524,3 +517,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+   
